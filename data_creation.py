@@ -248,7 +248,7 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.
     lesion_masks = [load_nii(name).get_data().astype(dtype=np.bool) for name in mask_names]
     idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
                        for pr_map, lesion_mask in zip(pr_maps, lesion_masks)]
-    nolesion_masks = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask))
+    nolesion_masks = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
                       for idx, lesion_mask in zip(idx_sorted_maps, lesion_masks)]
 
     # Get all the patches for each image
