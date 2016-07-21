@@ -240,6 +240,35 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
     return data, masks
 
 
+def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.float32):
+    images = [load_nii(name).get_data() for name in names]
+    # Normalize the images
+    images_norm = [(im.astype(dtype=datatype) - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std() for im in images]
+    # Create the masks
+    lesion_masks = [load_nii(name).get_data().astype(dtype=np.bool) for name in mask_names]
+    idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
+                       for pr_map, lesion_mask in zip(pr_maps, lesion_masks)]
+    nolesion_masks = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask))
+                      for idx, lesion_mask in zip(idx_sorted_maps, lesion_masks)]
+
+    # Get all the patches for each image
+    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
+    nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
+    lesion_patches = [np.array(get_patches(image, centers, size))
+                      for image, centers in zip(images_norm, lesion_centers)]
+    lesion_msk_patches = [np.array(get_patches(image, centers, size))
+                          for image, centers in zip(lesion_masks, lesion_centers)]
+    nolesion_patches = [np.array(get_patches(image, centers, size))
+                        for image, centers in zip(images_norm, nolesion_centers)]
+    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
+                            for image, centers in zip(lesion_masks, nolesion_centers)]
+
+    data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
+    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
+
+    return data, masks
+
+
 def get_sufix(use_flair, use_pd, use_t2, use_t1, use_gado):
     images_used = [use_flair, use_pd, use_t2, use_t1, use_gado]
     letters = ['fl', 'pd', 't2', 't1', 'gd']
