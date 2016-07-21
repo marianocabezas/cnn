@@ -263,9 +263,6 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.
     nolesion_msk_patches = [np.array(get_patches(image, centers, size))
                             for image, centers in zip(lesion_masks, nolesion_centers)]
 
-    for p1, p2 in zip(lesion_patches, nolesion_patches):
-        print('Lesion patches = (' + ','.join([str(length) for length in p1.shape]) + ')')
-        print('No-lesion patches = (' + ','.join([str(length) for length in p2.shape]) + ')')
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
 
