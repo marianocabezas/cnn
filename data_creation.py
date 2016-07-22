@@ -205,10 +205,6 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
 
-    for p1, p2 in zip(lesion_patches, nolesion_patches):
-        print('Lesion patches = (' + ','.join([length for length in p1.shape]) + ')')
-        print('No-lesion patches = (' + ','.join([length for length in p1.shape]) + ')')
-
     return data, masks, image_names
 
 
