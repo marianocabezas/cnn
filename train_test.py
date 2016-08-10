@@ -138,7 +138,7 @@ def patches_network_detection(options, mode):
         print('-- Permuting the labels')
         np.random.seed(seed)
         y_train = np.random.permutation(np.concatenate(y_train).astype(dtype=np.int32))
-        y_train = y_train[:, y_train.shape[1] / 2 + 1, y_train.shape[2] / 2 + 1, y_train.shape[3] / 2 + 1]
+        y_train = y_train[:, y_train.shape[1] / 2, y_train.shape[2] / 2, y_train.shape[3] / 2]
         print('-- Training vector shape = (' + ','.join([str(length) for length in x_train.shape]) + ')')
         print('-- Training labels shape = (' + ','.join([str(length) for length in y_train.shape]) + ')')
 
