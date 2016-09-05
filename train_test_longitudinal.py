@@ -4,7 +4,6 @@ import os
 import sys
 from time import strftime
 import numpy as np
-from data_creation import load_masks, load_mask_vectors
 from data_creation import load_patch_batch_percent
 from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
@@ -90,11 +89,11 @@ def main():
     parser.add_argument('--flair-12m', action='store', dest='flair_f', default='flair_corrected.nii.gz')
     parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected')
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected')
-    parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii.gz')
+    parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     options = vars(parser.parse_args())
 
     c = color_codes()
-    patch_size = (15, 15, 15)
+    patch_size = (11, 11, 11)
     batch_size = 100000
     # Create the data
     prefix_name = options['prefix']
@@ -147,7 +146,7 @@ def main():
             verbose=10,
             max_epochs=50,
             train_split=TrainSplit(eval_size=0.25),
-            custom_scores=[('dsc', lambda p, t: 2 * np.sum(p * t[:, 1]) / np.sum((p + t[:, 1])))],
+            custom_scores=[('dsc', lambda pred, t: 2 * np.sum(pred * t[:, 1]) / np.sum((pred + t[:, 1])))],
         )
         flair_b_test = os.path.join(path, flair_b_name)
         pd_b_test = os.path.join(path, pd_b_name)
@@ -163,7 +162,7 @@ def main():
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                   c['g'] + 'Loading the data for ' + c['b'] + 'iteration 1' + c['nc'])
             names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
-            paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
+            paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i+1:]])]
             mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
 
             x_train, y_train = load_iter1_data(
@@ -256,7 +255,7 @@ def main():
             verbose=10,
             max_epochs=2000,
             train_split=TrainSplit(eval_size=0.25),
-            custom_scores=[('dsc', lambda p, t: 2 * np.sum(p * t[:, 1]) / np.sum((p + t[:, 1])))],
+            custom_scores=[('dsc', lambda pred, t: 2 * np.sum(pred * t[:, 1]) / np.sum((pred + t[:, 1])))],
         )
 
         try:
@@ -274,8 +273,7 @@ def main():
                 mask_names=mask_names,
                 roi_names=roi_names,
                 patch_size=patch_size,
-                seed=seed,
-                old=options['old']
+                seed=seed
             )
 
             print('              Training vector shape = (' + ','.join([str(length) for length in x_train.shape]) + ')')
@@ -289,7 +287,7 @@ def main():
         except IOError:
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Creating the probability map ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-            image_nii = load_nii(flair_name)
+            image_nii = load_nii(os.path.join(path, flair_b_name))
             image2 = np.zeros_like(image_nii.get_data())
             print('              0% of data tested', end='\r')
             sys.stdout.flush()
