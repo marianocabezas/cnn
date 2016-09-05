@@ -28,13 +28,12 @@ def color_codes():
     return codes
 
 
-def load_and_stack_iter1(names_lou, mask_names, brain_names, patch_size):
-    rois = load_masks(brain_names)
-    images_loaded = [[x for x, _ in load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)]
+def load_and_stack_iter1(names_lou, mask_names, patch_size):
+    images_loaded = [[x for x, _ in load_patch_vectors_by_name(names_i, mask_names, patch_size)]
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    y_train = load_mask_vectors(mask_names, patch_size, rois)
+    _, y_train = load_patch_vectors_by_name(names_lou[0, :], mask_names, patch_size)
 
     return x_train, y_train
 
@@ -45,7 +44,7 @@ def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    _, y_train = load_patch_vectors_by_name_pr(names_lou[1, :], mask_names, patch_size, pr_maps=pr_maps)
+    _, y_train = load_patch_vectors_by_name_pr(names_lou[0, :], mask_names, patch_size, pr_maps=pr_maps)
 
     return x_train, y_train
 
