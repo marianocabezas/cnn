@@ -116,6 +116,10 @@ def load_thresholded_images(name, dir_name, threshold=2.0, datatype=np.float32):
     return rois
 
 
+def load_masks(mask_names):
+    return [load_nii(image_name).get_data().astype(dtype=np.bool) for image_name in mask_names]
+
+
 def load_thresholded_images_by_name(image_names, threshold=2.0, datatype=np.float32):
     images = [load_nii(image_name).get_data() for image_name in image_names]
     rois = [image.astype(dtype=datatype) > threshold for image in images]
@@ -235,6 +239,30 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
                             for image, centers in zip(lesion_masks, nolesion_small)]
 
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
+    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
+
+    return data, masks
+
+
+def load_mask_vectors(mask_names, size, rois, random_state=42):
+    # Create the masks
+    brain_masks = rois
+    lesion_masks = [load_nii(name).get_data().astype(dtype=np.bool) for name in mask_names]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
+
+    # Get all the patches for each image
+    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
+    nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
+    # FIX: nolesion_small should have the best indices
+    np.random.seed(random_state)
+    indices = [np.random.permutation(range(0, len(centers1))).tolist()[:len(centers2)]
+               for centers1, centers2 in zip(nolesion_centers, lesion_centers)]
+    nolesion_small = [itemgetter(*idx)(centers) for centers, idx in zip(nolesion_centers, indices)]
+    lesion_msk_patches = [np.array(get_patches(image, centers, size))
+                          for image, centers in zip(lesion_masks, lesion_centers)]
+    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
+                            for image, centers in zip(lesion_masks, nolesion_small)]
+
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
 
     return data, masks
