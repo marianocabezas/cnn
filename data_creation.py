@@ -153,15 +153,10 @@ def load_image_vectors(name, dir_name, min_shape, datatype=np.float32):
     return data.astype(datatype), image_names
 
 
-def load_patch_batch(image_names, batch_size, size, datatype=np.float32):
-    images = [load_nii(name).get_data() for name in image_names]
-    images_norm = [(im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std() for im in images]
-    lesion_centers = get_mask_voxels(images[0].astype(np.bool))
-    for i in range(0, len(lesion_centers), batch_size):
-        centers = lesion_centers[i:i+batch_size]
-        yield np.stack(
-            [np.array(get_patches(image, centers, size)).astype(datatype) for image in images_norm], axis=1
-        ), centers
+def norm_image_generator(image_names):
+    for name in image_names:
+        im = load_nii(name).get_data()
+        yield (im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std(), im.astype(dtype=np.bool)
 
 
 def load_patch_batch_percent(image_names, batch_size, size, datatype=np.float32):
@@ -174,6 +169,34 @@ def load_patch_batch_percent(image_names, batch_size, size, datatype=np.float32)
         yield np.stack(
             [np.array(get_patches(image, centers, size)).astype(datatype) for image in images_norm], axis=1
         ), centers, (100.0 * min((i + batch_size),  n_centers)) / n_centers
+
+
+def subsample(center_list, size, random_state):
+    np.random.seed(random_state)
+    indices = [np.random.permutation(range(0, len(centers))).tolist()[:size] for centers in center_list]
+    return [itemgetter(*idx)(centers) for centers, idx in zip(center_list, indices)]
+
+
+def get_list_of_patches(image_list, center_list, size):
+    return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
+
+
+def get_patch_vectors(images, positive_masks, negative_masks, size, random_state=42):
+    # Get all the centers for each image
+    lesion_centers = [get_mask_voxels(mask) for mask in positive_masks]
+    nolesion_centers = [get_mask_voxels(mask) for mask in negative_masks]
+    nolesion_small = subsample(nolesion_centers, len(lesion_centers), random_state)
+
+    # Geta all the patches for each image
+    lesion_patches = get_list_of_patches(images, lesion_centers, size)
+    lesion_msk_patches = get_list_of_patches(positive_masks, lesion_centers, size)
+    nolesion_patches = get_list_of_patches(images, nolesion_small, size)
+    nolesion_msk_patches = get_list_of_patches(positive_masks, nolesion_small, size)
+
+    # Return the patch vectors
+    data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
+    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
+    return data, masks
 
 
 def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=42, datatype=np.float32):
@@ -190,24 +213,7 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
 
     # Get all the patches for each image
-    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
-    nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
-    # FIX: nolesion_small should have the best indices
-    np.random.seed(random_state)
-    indices = [np.random.permutation(range(0, len(centers1))).tolist()[:len(centers2)]
-               for centers1, centers2 in zip(nolesion_centers, lesion_centers)]
-    nolesion_small = [itemgetter(*idx)(centers) for centers, idx in zip(nolesion_centers, indices)]
-    lesion_patches = [np.array(get_patches(image, centers, size))
-                      for image, centers in zip(images_norm, lesion_centers)]
-    lesion_msk_patches = [np.array(get_patches(image, centers, size))
-                          for image, centers in zip(lesion_masks, lesion_centers)]
-    nolesion_patches = [np.array(get_patches(image, centers, size))
-                        for image, centers in zip(images_norm, nolesion_small)]
-    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
-                            for image, centers in zip(lesion_masks, nolesion_small)]
-
-    data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
-    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
+    data, masks = get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
 
     return data, masks, image_names
 
@@ -222,50 +228,7 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
     nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
 
     # Get all the patches for each image
-    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
-    nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
-    # FIX: nolesion_small should have the best indices
-    np.random.seed(random_state)
-    indices = [np.random.permutation(range(0, len(centers1))).tolist()[:len(centers2)]
-               for centers1, centers2 in zip(nolesion_centers, lesion_centers)]
-    nolesion_small = [itemgetter(*idx)(centers) for centers, idx in zip(nolesion_centers, indices)]
-    lesion_patches = [np.array(get_patches(image, centers, size))
-                      for image, centers in zip(images_norm, lesion_centers)]
-    lesion_msk_patches = [np.array(get_patches(image, centers, size))
-                          for image, centers in zip(lesion_masks, lesion_centers)]
-    nolesion_patches = [np.array(get_patches(image, centers, size))
-                        for image, centers in zip(images_norm, nolesion_small)]
-    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
-                            for image, centers in zip(lesion_masks, nolesion_small)]
-
-    data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
-    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
-
-    return data, masks
-
-
-def load_mask_vectors(mask_names, size, rois, random_state=42):
-    # Create the masks
-    brain_masks = rois
-    lesion_masks = [load_nii(name).get_data().astype(dtype=np.bool) for name in mask_names]
-    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
-
-    # Get all the patches for each image
-    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
-    nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
-    # FIX: nolesion_small should have the best indices
-    np.random.seed(random_state)
-    indices = [np.random.permutation(range(0, len(centers1))).tolist()[:len(centers2)]
-               for centers1, centers2 in zip(nolesion_centers, lesion_centers)]
-    nolesion_small = [itemgetter(*idx)(centers) for centers, idx in zip(nolesion_centers, indices)]
-    lesion_msk_patches = [np.array(get_patches(image, centers, size))
-                          for image, centers in zip(lesion_masks, lesion_centers)]
-    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
-                            for image, centers in zip(lesion_masks, nolesion_small)]
-
-    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
-
-    return data, masks
+    return get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
 
 
 def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.float32):
@@ -280,21 +243,26 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.
                       for idx, lesion_mask in zip(idx_sorted_maps, lesion_masks)]
 
     # Get all the patches for each image
+    return get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
+
+
+def load_mask_vectors(mask_names, size, rois, random_state=42):
+    # Create the masks
+    brain_masks = rois
+    lesion_masks = [load_nii(name).get_data().astype(dtype=np.bool) for name in mask_names]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
+
+    # Get all the patches for each image
     lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
     nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
-    lesion_patches = [np.array(get_patches(image, centers, size))
-                      for image, centers in zip(images_norm, lesion_centers)]
-    lesion_msk_patches = [np.array(get_patches(image, centers, size))
-                          for image, centers in zip(lesion_masks, lesion_centers)]
-    nolesion_patches = [np.array(get_patches(image, centers, size))
-                        for image, centers in zip(images_norm, nolesion_centers)]
-    nolesion_msk_patches = [np.array(get_patches(image, centers, size))
-                            for image, centers in zip(lesion_masks, nolesion_centers)]
+    # FIX: nolesion_small should have the best indices
+    nolesion_small = subsample(nolesion_centers, len(lesion_centers), random_state)
+    lesion_msk_patches = get_list_of_patches(lesion_masks, lesion_centers, size)
+    nolesion_msk_patches = get_list_of_patches(lesion_masks, nolesion_small, size)
 
-    data = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_patches, nolesion_patches)]
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
 
-    return data, masks
+    return masks
 
 
 def get_sufix(use_flair, use_pd, use_t2, use_t1, use_gado):

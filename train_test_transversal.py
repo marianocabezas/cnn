@@ -1,7 +1,7 @@
 import os
 import argparse
 import numpy as np
-from data_creation import load_patches, load_patch_batch
+from data_creation import load_patches, load_patch_batch_percent
 from data_creation import get_sufix
 from data_creation import leave_one_out
 from data_creation import sum_patches_to_image
@@ -181,7 +181,7 @@ def patches_network_detection(options, mode):
         print(c['g'] + '-- Creating the test probability maps' + c['nc'])
         image_nii = load_nii(names[0, i])
         image = image_nii.get_data()
-        for batch, centers in load_patch_batch(names[:, i], options['batch_size'], tuple(options['patch_size'])):
+        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'], tuple(options['patch_size'])):
             if options['multi_channel']:
                 y_pred = net.predict_proba(batch)
             else:
@@ -285,7 +285,7 @@ def patches_network_segmentation(options, mode):
         print(c['g'] + '-- Creating the test probability maps' + c['nc'])
         image_nii = load_nii(names[0, i])
         image = np.zeros_like(image_nii.get_data())
-        for batch, centers in load_patch_batch(names[:, i], options['batch_size'],
+        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'],
                                                tuple(options['patch_size'])):
             if options['multi_channel']:
                 y_pred = net.predict_proba(batch)
