@@ -181,6 +181,7 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, sizes):
+    print('Number of patches to load = (' + ','.join([centers.shape[0] for centers in center_list if centers]))
     return [np.array(get_patches(image, centers, size))
             for image, centers, size in zip(image_list, center_list, sizes) if centers]
 
@@ -192,12 +193,14 @@ def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_
     positive_voxels = [len(lesion) for lesion in positive_centers]
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
-    # Geta all the patches for each image
+    # Get all the patches for each image
     images = norm_image_generator(image_names)
     positive_patches = get_list_of_patches(images, positive_centers, size)
-    positive_mask_patches = get_list_of_patches(positive_masks, positive_centers, size)
     images = norm_image_generator(image_names)
     negative_patches = get_list_of_patches(images, nolesion_small, size)
+
+    # Prepare the mask patches for training
+    positive_mask_patches = get_list_of_patches(positive_masks, positive_centers, size)
     negative_mask_patches = get_list_of_patches(positive_masks, nolesion_small, size)
 
     # Return the patch vectors
