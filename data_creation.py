@@ -118,7 +118,8 @@ def load_thresholded_images(name, dir_name, threshold=2.0, datatype=np.float32):
 
 
 def load_masks(mask_names):
-    return [load_nii(image_name).get_data().astype(dtype=np.bool) for image_name in mask_names]
+    for image_name in mask_names:
+        yield load_nii(image_name).get_data().astype(dtype=np.bool)
 
 
 def load_thresholded_images_by_name(image_names, threshold=2.0, datatype=np.float32):
