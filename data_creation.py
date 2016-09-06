@@ -185,6 +185,9 @@ def get_list_of_patches(image_list, center_list, size):
           ','.join([str(len(centers)) for centers in center_list]) + ')')
     print('                Patch size = (' +
           ','.join([str(length) for length in size]) + ')')
+    for image in image_list:
+        print('                Image size = (' +
+              ','.join([str(length) for length in image.shape]) + ')')
     return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
 
 
