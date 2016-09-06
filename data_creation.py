@@ -176,7 +176,7 @@ def subsample(center_list, sizes, random_state):
     np.random.seed(random_state)
     indices = [np.random.permutation(range(0, len(centers))).tolist()[:size]
                for centers, size in zip(center_list, sizes)]
-    return [itemgetter(*idx)(centers) for centers, idx in zip(center_list, indices)]
+    return [itemgetter(*idx)(centers) if centers else [] for centers, idx in zip(center_list, indices)]
 
 
 def get_list_of_patches(image_list, center_list, sizes):
