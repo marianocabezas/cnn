@@ -182,7 +182,7 @@ def subsample(center_list, sizes, random_state):
 
 def get_list_of_patches(image_list, center_list, sizes):
     print('                Number of patches to load = (' +
-          ','.join([centers.shape[0] for centers in center_list if centers]))
+          ','.join([len(centers) for centers in center_list if centers]) + ')')
     return [np.array(get_patches(image, centers, size))
             for image, centers, size in zip(image_list, center_list, sizes) if centers]
 
