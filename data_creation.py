@@ -181,17 +181,19 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, sizes):
-    print('                Number of patches to load = (' +
-          ','.join([len(centers) for centers in center_list if centers]) + ')')
     return [np.array(get_patches(image, centers, size))
-            for image, centers, size in zip(image_list, center_list, sizes) if centers]
+            for image, centers, size in zip(image_list, center_list, sizes) if size>0]
 
 
 def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
+    print('                Positive patch vectors = (' +
+          ','.join([str(len(centers)) for centers in positive_centers]) + ')')
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
-    positive_voxels = [len(lesion) for lesion in positive_centers]
+    print('                Negative patch vectors = (' +
+          ','.join([str(len(centers)) for centers in negative_masks]) + ')')
+    positive_voxels = [len(positives) for positives in positive_centers]
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
     # Get all the patches for each image
