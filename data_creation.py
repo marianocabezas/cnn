@@ -183,13 +183,14 @@ def get_list_of_patches(image_list, center_list, size):
 
 def get_patch_vectors(images, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
-    lesion_centers = [get_mask_voxels(mask) for mask in positive_masks]
-    nolesion_centers = [get_mask_voxels(mask) for mask in negative_masks]
-    nolesion_small = subsample(nolesion_centers, len(lesion_centers), random_state)
+    positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
+    negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
+    positive_voxels = [len(lesion) for lesion in positive_centers]
+    nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
     # Geta all the patches for each image
-    positive_patches = get_list_of_patches(images, lesion_centers, size)
-    positive_mask_patches = get_list_of_patches(positive_masks, lesion_centers, size)
+    positive_patches = get_list_of_patches(images, positive_centers, size)
+    positive_mask_patches = get_list_of_patches(positive_masks, positive_centers, size)
     negative_patches = get_list_of_patches(images, nolesion_small, size)
     negative_mask_patches = get_list_of_patches(positive_masks, nolesion_small, size)
 
