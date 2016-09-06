@@ -182,7 +182,7 @@ def subsample(center_list, sizes, random_state):
 
 def get_list_of_patches(image_list, center_list, sizes):
     return [np.array(get_patches(image, centers, size))
-            for image, centers, size in zip(image_list, center_list, sizes)]
+            for image, centers, size in zip(image_list, center_list, sizes) if centers]
 
 
 def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
