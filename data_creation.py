@@ -2,7 +2,6 @@ import os
 import re
 import gc
 import numpy as np
-from itertools import izip
 from scipy import ndimage as nd
 from nibabel import load as load_nii
 from nibabel import save as save_nii
@@ -158,7 +157,7 @@ def load_image_vectors(name, dir_name, min_shape, datatype=np.float32):
 def norm_image_generator(image_names):
     for name in image_names:
         im = load_nii(name).get_data()
-        yield (im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std(), im.astype(dtype=np.bool)
+        yield (im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std()
 
 
 def load_patch_batch_percent(image_names, batch_size, size, datatype=np.float32):
