@@ -186,6 +186,7 @@ def get_patch_vectors(images, positive_masks, negative_masks, size, random_state
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
     positive_voxels = [len(lesion) for lesion in positive_centers]
+    print('Positive patch vectors = (' + ','.join([str(vox) for vox in positive_voxels]))
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
     # Geta all the patches for each image
