@@ -184,7 +184,7 @@ def get_list_of_patches(image_list, center_list, sizes):
             for image, centers, size in zip(image_list, center_list, sizes)]
 
 
-def get_patch_vectors(images, positive_masks, negative_masks, size, random_state=42):
+def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
@@ -192,8 +192,10 @@ def get_patch_vectors(images, positive_masks, negative_masks, size, random_state
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
     # Geta all the patches for each image
+    images = norm_image_generator(image_names)
     positive_patches = get_list_of_patches(images, positive_centers, size)
     positive_mask_patches = get_list_of_patches(positive_masks, positive_centers, size)
+    images = norm_image_generator(image_names)
     negative_patches = get_list_of_patches(images, nolesion_small, size)
     negative_mask_patches = get_list_of_patches(positive_masks, nolesion_small, size)
 
@@ -209,35 +211,29 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     # Get the names of the images and load them
     patients = [f for f in sorted(os.listdir(dir_name)) if os.path.isdir(os.path.join(dir_name, f))]
     image_names = [os.path.join(dir_name, patient, name) for patient in patients]
-    # Normalize the images
-    images_norm, masks = norm_image_generator(image_names)
     # Create the masks
-    brain_masks = rois if rois else masks
+    brain_masks = rois if rois else load_masks(image_names)
     mask_names = [os.path.join(dir_name, patient, mask_name) for patient in patients]
     lesion_masks = load_masks(mask_names)
     nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
 
     # Get all the patches for each image
-    data, masks = get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
+    data, masks = get_patch_vectors(image_names, lesion_masks, nolesion_masks, size, random_state)
 
     return data, masks, image_names
 
 
 def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=42):
-    # Normalize the images
-    images_norm, masks = izip(*norm_image_generator(names))
     # Create the masks
-    brain_masks = rois if rois else masks
+    brain_masks = rois if rois else load_masks(names)
     lesion_masks = load_masks(mask_names)
     nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
 
     # Get all the patches for each image
-    return get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
+    return get_patch_vectors(names, lesion_masks, nolesion_masks, size, random_state)
 
 
 def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
-    # Normalize the images
-    images_norm, _ = izip(*norm_image_generator(names))
     # Create the masks
     lesion_masks = load_masks(mask_names)
     idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
@@ -246,7 +242,7 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
                       for idx, lesion_mask in zip(idx_sorted_maps, lesion_masks)]
 
     # Get all the patches for each image
-    return get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size)
+    return get_patch_vectors(names, lesion_masks, nolesion_masks, size)
 
 
 def load_mask_vectors(mask_names, size, rois, random_state=42):
