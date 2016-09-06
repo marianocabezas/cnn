@@ -128,6 +128,7 @@ def patches_network_detection(options, mode):
 
     n_channels = x[0].shape[1]
     channels = range(0, n_channels)
+    patch_size = tuple(options['patch_size'])
 
     for x_train, y_train, i in leave_one_out(x, y):
         print('Running patient ' + c['c'] + names[0, i].rsplit('/')[-2] + c['nc'])
@@ -181,7 +182,7 @@ def patches_network_detection(options, mode):
         print(c['g'] + '-- Creating the test probability maps' + c['nc'])
         image_nii = load_nii(names[0, i])
         image = image_nii.get_data()
-        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'], tuple(options['patch_size'])):
+        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'], patch_size):
             if options['multi_channel']:
                 y_pred = net.predict_proba(batch)
             else:
@@ -232,6 +233,7 @@ def patches_network_segmentation(options, mode):
 
     n_channels = x[0].shape[1]
     channels = range(0, n_channels)
+    patch_size = tuple(options['patch_size'])
 
     for x_train, y_train, i in leave_one_out(x, y):
         print('Running patient ' + c['c'] + names[0, i].rsplit('/')[-2] + c['nc'])
@@ -285,8 +287,7 @@ def patches_network_segmentation(options, mode):
         print(c['g'] + '-- Creating the test probability maps' + c['nc'])
         image_nii = load_nii(names[0, i])
         image = np.zeros_like(image_nii.get_data())
-        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'],
-                                               tuple(options['patch_size'])):
+        for batch, centers, _ in load_patch_batch_percent(names[:, i], options['batch_size'], patch_size):
             if options['multi_channel']:
                 y_pred = net.predict_proba(batch)
             else:
