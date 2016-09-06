@@ -192,7 +192,7 @@ def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_
           ','.join([str(len(centers)) for centers in positive_centers]) + ')')
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
     print('                Negative patch vectors = (' +
-          ','.join([str(len(centers)) for centers in negative_masks]) + ')')
+          ','.join([str(len(centers)) for centers in negative_centers]) + ')')
     positive_voxels = [len(positives) for positives in positive_centers]
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
@@ -235,37 +235,35 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
 def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=42):
     # Create the masks
     brain_masks = rois if rois else load_masks(names)
-    lesion_masks = load_masks(mask_names)
-    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain)
+                      for lesion, brain in zip(load_masks(mask_names), brain_masks)]
 
     # Get all the patches for each image
-    return get_patch_vectors(names, lesion_masks, nolesion_masks, size, random_state)
+    return get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size, random_state)
 
 
 def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
     # Create the masks
-    lesion_masks = load_masks(mask_names)
     idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
-                       for pr_map, lesion_mask in zip(pr_maps, lesion_masks)]
+                       for pr_map, lesion_mask in zip(pr_maps, load_masks(mask_names))]
     nolesion_masks = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
-                      for idx, lesion_mask in zip(idx_sorted_maps, lesion_masks)]
+                      for idx, lesion_mask in zip(idx_sorted_maps, load_masks(mask_names))]
 
     # Get all the patches for each image
-    return get_patch_vectors(names, lesion_masks, nolesion_masks, size)
+    return get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size)
 
 
 def load_mask_vectors(mask_names, size, rois, random_state=42):
     # Create the masks
-    lesion_masks = load_masks(mask_names)
-    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, rois)]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(load_masks(mask_names), rois)]
 
     # Get all the patches for each image
-    lesion_centers = [get_mask_voxels(mask) for mask in lesion_masks]
+    lesion_centers = [get_mask_voxels(mask) for mask in load_masks(mask_names)]
     nolesion_centers = [get_mask_voxels(mask) for mask in nolesion_masks]
     # FIX: nolesion_small should have the best indices
     nolesion_small = subsample(nolesion_centers, len(lesion_centers), random_state)
-    lesion_msk_patches = get_list_of_patches(lesion_masks, lesion_centers, size)
-    nolesion_msk_patches = get_list_of_patches(lesion_masks, nolesion_small, size)
+    lesion_msk_patches = get_list_of_patches(load_masks(mask_names), lesion_centers, size)
+    nolesion_msk_patches = get_list_of_patches(load_masks(mask_names), nolesion_small, size)
 
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(lesion_msk_patches, nolesion_msk_patches)]
 
