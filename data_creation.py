@@ -187,11 +187,7 @@ def get_list_of_patches(image_list, center_list, size):
 def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
-    print('                Positive patch vectors = (' +
-          ','.join([str(len(centers)) for centers in positive_centers]) + ')')
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
-    print('                Negative patch vectors = (' +
-          ','.join([str(len(centers)) for centers in negative_centers]) + ')')
     positive_voxels = [len(positives) for positives in positive_centers]
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
