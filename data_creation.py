@@ -172,9 +172,10 @@ def load_patch_batch_percent(image_names, batch_size, size, datatype=np.float32)
         ), centers, (100.0 * min((i + batch_size),  n_centers)) / n_centers
 
 
-def subsample(center_list, size, random_state):
+def subsample(center_list, sizes, random_state):
     np.random.seed(random_state)
-    indices = [np.random.permutation(range(0, len(centers))).tolist()[:size] for centers in center_list]
+    indices = [np.random.permutation(range(0, len(centers))).tolist()[:size]
+               for centers, size in zip(center_list, sizes)]
     return [itemgetter(*idx)(centers) for centers, idx in zip(center_list, indices)]
 
 
