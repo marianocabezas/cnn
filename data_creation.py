@@ -204,7 +204,7 @@ def get_patch_vectors(images, positive_masks, negative_masks, size, random_state
     return data, masks
 
 
-def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=42, datatype=np.float32):
+def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=42):
     # Get the names of the images and load them
     patients = [f for f in sorted(os.listdir(dir_name)) if os.path.isdir(os.path.join(dir_name, f))]
     image_names = [os.path.join(dir_name, patient, name) for patient in patients]
@@ -222,7 +222,7 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     return data, masks, image_names
 
 
-def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=42, datatype=np.float32):
+def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=42):
     # Normalize the images
     images_norm, masks = izip(*norm_image_generator(names))
     # Create the masks
@@ -234,9 +234,9 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
     return get_patch_vectors(images_norm, lesion_masks, nolesion_masks, size, random_state)
 
 
-def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.float32):
+def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
     # Normalize the images
-    images_norm, masks = izip(*norm_image_generator(names))
+    images_norm, _ = izip(*norm_image_generator(names))
     # Create the masks
     lesion_masks = load_masks(mask_names)
     idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
