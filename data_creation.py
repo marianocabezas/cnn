@@ -2,6 +2,7 @@ import os
 import re
 import gc
 import numpy as np
+from itertools import izip
 from scipy import ndimage as nd
 from nibabel import load as load_nii
 from nibabel import save as save_nii
@@ -223,7 +224,7 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
 
 def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=42, datatype=np.float32):
     # Normalize the images
-    images_norm, masks = norm_image_generator(names)
+    images_norm, masks = izip(*norm_image_generator(names))
     # Create the masks
     brain_masks = rois if rois else masks
     lesion_masks = load_masks(mask_names)
@@ -235,7 +236,7 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
 
 def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps, datatype=np.float32):
     # Normalize the images
-    images_norm, masks = norm_image_generator(names)
+    images_norm, masks = izip(*norm_image_generator(names))
     # Create the masks
     lesion_masks = load_masks(mask_names)
     idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
