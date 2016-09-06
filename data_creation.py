@@ -181,7 +181,8 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, sizes):
-    print('Number of patches to load = (' + ','.join([centers.shape[0] for centers in center_list if centers]))
+    print('                Number of patches to load = (' +
+          ','.join([centers.shape[0] for centers in center_list if centers]))
     return [np.array(get_patches(image, centers, size))
             for image, centers, size in zip(image_list, center_list, sizes) if centers]
 
@@ -204,8 +205,10 @@ def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_
     negative_mask_patches = get_list_of_patches(positive_masks, nolesion_small, size)
 
     # Return the patch vectors
-    print('Positive patch vectors = (' + ','.join([str(p.shape[0]) for p in positive_patches]) + ')')
-    print('Negative vectors = (' + ','.join([str(p.shape[0]) for p in negative_patches]) + ')')
+    print('                Positive patch vectors = (' +
+          ','.join([str(p.shape[0]) for p in positive_patches]) + ')')
+    print('                Negative vectors = (' +
+          ','.join([str(p.shape[0]) for p in negative_patches]) + ')')
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)]
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_mask_patches, negative_mask_patches)]
     return data, masks
