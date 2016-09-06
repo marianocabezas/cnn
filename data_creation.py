@@ -177,8 +177,9 @@ def subsample(center_list, size, random_state):
     return [itemgetter(*idx)(centers) for centers, idx in zip(center_list, indices)]
 
 
-def get_list_of_patches(image_list, center_list, size):
-    return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
+def get_list_of_patches(image_list, center_list, sizes):
+    return [np.array(get_patches(image, centers, size))
+            for image, centers, size in zip(image_list, center_list, sizes)]
 
 
 def get_patch_vectors(images, positive_masks, negative_masks, size, random_state=42):
@@ -186,7 +187,6 @@ def get_patch_vectors(images, positive_masks, negative_masks, size, random_state
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
     positive_voxels = [len(lesion) for lesion in positive_centers]
-    print('Positive patch vectors = (' + ','.join([str(vox) for vox in positive_voxels]))
     nolesion_small = subsample(negative_centers, positive_voxels, random_state)
 
     # Geta all the patches for each image
@@ -196,8 +196,8 @@ def get_patch_vectors(images, positive_masks, negative_masks, size, random_state
     negative_mask_patches = get_list_of_patches(positive_masks, nolesion_small, size)
 
     # Return the patch vectors
-    print('Positive patch vectors = (' + ','.join([str(p.shape[0]) for p in positive_patches]))
-    print('Negative vectors = (' + ','.join([str(p.shape[0]) for p in negative_patches]))
+    print('Positive patch vectors = (' + ','.join([str(p.shape[0]) for p in positive_patches]) + ')')
+    print('Negative vectors = (' + ','.join([str(p.shape[0]) for p in negative_patches]) + ')')
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)]
     masks = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_mask_patches, negative_mask_patches)]
     return data, masks
