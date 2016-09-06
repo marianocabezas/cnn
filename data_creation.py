@@ -180,9 +180,8 @@ def subsample(center_list, sizes, random_state):
     return [itemgetter(*idx)(centers) if idx else [] for centers, idx in zip(center_list, indices)]
 
 
-def get_list_of_patches(image_list, center_list, sizes):
-    return [np.array(get_patches(image, centers, size))
-            for image, centers, size in zip(image_list, center_list, sizes) if size>0]
+def get_list_of_patches(image_list, center_list, size):
+    return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
 
 
 def get_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
