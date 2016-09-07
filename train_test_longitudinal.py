@@ -28,6 +28,7 @@ def color_codes():
 
 
 def load_and_stack_iter1(names_lou, mask_names, patch_size):
+    print(names_lou.shape)
     images_loaded = [[x for x, _ in load_patch_vectors_by_name(names_i, mask_names, patch_size)]
                      for names_i in names_lou]
 
