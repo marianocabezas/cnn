@@ -187,7 +187,7 @@ def get_list_of_patches(image_list, center_list, size):
     i = 0
     for image, centers in zip(image_list, center_list):
         print('Processing image %d' % i)
-        print('Centers = (%d,%s)' % len(centers), '+'.join([str(len(center)) for center in centers]))
+        print('Centers = (%d,%s)' % (len(centers), '+'.join([str(len(center)) for center in centers])))
         i += 1
         np.array(get_patches(image, centers, size))
     return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
