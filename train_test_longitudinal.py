@@ -28,7 +28,7 @@ def color_codes():
 
 
 def load_and_stack_iter1(names_lou, mask_names, patch_size):
-    rois = load_thresholded_norm_images_by_name(names_lou[0, :])
+    rois = load_thresholded_norm_images_by_name(names_lou[0, :], threshold=1.0)
     images_loaded = [load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)
                      for names_i in names_lou]
 
@@ -46,7 +46,7 @@ def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    y_train = load_mask_vectors(mask_names, patch_size, rois=rois)
+    y_train = load_mask_vectors(mask_names, patch_size, rois=pr_maps)
 
     return x_train, y_train
 
@@ -116,7 +116,7 @@ def main():
     flair_f_names = [os.path.join(dir_name, patient, flair_f_name) for patient in patients]
     pd_f_names = [os.path.join(dir_name, patient, pd_f_name) for patient in patients]
     t2_f_names = [os.path.join(dir_name, patient, t2_f_name) for patient in patients]
-    names = np.stack([name for name in [flair_b_names, pd_b_names, t2_b_names, flair_f_names, pd_f_names, t2_f_names]])
+    names = np.stack([name for name in [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]])
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
@@ -157,7 +157,7 @@ def main():
         flair_f_test = os.path.join(path, flair_f_name)
         pd_f_test = os.path.join(path, pd_f_name)
         t2_f_test = os.path.join(path, t2_f_name)
-        names_test = np.array([flair_b_test, pd_b_test, t2_b_test, flair_f_test, pd_f_test, t2_f_test])
+        names_test = np.array([flair_f_test, pd_f_test, t2_f_test, flair_b_test, pd_b_test, t2_b_test])
         outputname1 = os.path.join(path, 'test' + str(i) + '.iter1.nii.gz')
         try:
             net.load_params_from(net_name + 'model_weights.pkl')
