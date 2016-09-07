@@ -88,8 +88,8 @@ def main():
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
     parser.add_argument('--t2-baseline', action='store', dest='t2_b', default='t2_moved.nii.gz')
     parser.add_argument('--flair-12m', action='store', dest='flair_f', default='flair_corrected.nii.gz')
-    parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected')
-    parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected')
+    parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected.nii.gz')
+    parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     options = vars(parser.parse_args())
 
