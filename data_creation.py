@@ -222,8 +222,8 @@ def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, ra
 
     # Return the patch vectors
     for p1, p2 in zip(positive_patches, negative_patches):
-        print(p1.shape)
-        print(p2.shape)
+        print(len(p1))
+        print(len(p2))
     data = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)]
     return data
 
