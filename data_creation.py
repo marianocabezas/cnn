@@ -297,7 +297,8 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
 
 def load_mask_vectors(mask_names, size, rois=None, random_state=42):
     # Create the masks
-    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(load_masks(mask_names), rois)]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain)
+                      for lesion, brain in zip(load_masks(mask_names), rois)]
 
     # Get all the patches for each image
     lesion_centers = [get_mask_voxels(mask) for mask in load_masks(mask_names)]
