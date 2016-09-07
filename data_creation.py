@@ -184,7 +184,8 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, size):
-    return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
+    return [np.array(get_patches(image, centers, size))
+            for image, centers in zip(image_list, center_list) if len(centers) > 0]
 
 
 def get_centers_from_masks(positive_masks, negative_masks, random_state=42):
@@ -212,12 +213,6 @@ def get_mask_patch_vectors(positive_masks, negative_masks, size, random_state=42
 def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
     positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
-    print('Positive = (' + str(len(positive_centers)) +
-          ',' + '+'.join([str(len(centers)) for centers in positive_centers]) +
-          ',' + str(len(positive_centers[0][0])) + ')')
-    print('Negative = (' + str(len(negative_centers)) +
-          ',' + '+'.join([str(len(centers)) for centers in negative_centers]) +
-          ',' + str(len(negative_centers[0][0])) + ')')
 
     # Get all the patches for each image
     images = norm_image_generator(image_names)
