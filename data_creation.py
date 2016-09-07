@@ -212,6 +212,8 @@ def get_mask_patch_vectors(positive_masks, negative_masks, size, random_state=42
 def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
     # Get all the centers for each image
     positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
+    print('Positive = (' + str(len(positive_centers)) + ',' + str(len(positive_centers[0])))
+    print('Negative = (' + str(len(negative_centers)) + ',' + str(len(negative_centers[0])))
 
     # Get all the patches for each image
     images = norm_image_generator(image_names)
