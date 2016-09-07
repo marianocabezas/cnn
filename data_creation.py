@@ -229,7 +229,8 @@ def load_patch_vectors_by_name(names, mask_names, size, rois=None, random_state=
                       for lesion, brain in zip(load_masks(mask_names), brain_masks)]
 
     # Get all the patches for each image
-    return get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size, random_state)
+    data, masks = get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size, random_state)
+    return data, masks
 
 
 def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
@@ -240,7 +241,8 @@ def load_patch_vectors_by_name_pr(names, mask_names, size, pr_maps):
                       for idx, lesion_mask in zip(idx_sorted_maps, load_masks(mask_names))]
 
     # Get all the patches for each image
-    return get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size)
+    data, masks = get_patch_vectors(names, load_masks(mask_names), nolesion_masks, size)
+    return data, masks
 
 
 def load_mask_vectors(mask_names, size, rois, random_state=42):
