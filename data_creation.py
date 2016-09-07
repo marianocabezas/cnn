@@ -184,11 +184,7 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, size):
-    for image, centers in zip(image_list, center_list):
-        patch_list = get_patches(image, centers, size)
-        print(len(patch_list))
-        print('-'.join(['(' + ','.join([str(length) for length in patch.shape]) + ')' for patch in patch_list]))
-    return [np.array(get_patches(image, centers, size)) for image, centers in zip(image_list, center_list)]
+    return [get_patches(image, centers, size) for image, centers in zip(image_list, center_list)]
 
 
 def get_centers_from_masks(positive_masks, negative_masks, random_state=42):
