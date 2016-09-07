@@ -4,8 +4,8 @@ import os
 import sys
 from time import strftime
 import numpy as np
-from data_creation import load_patch_batch_percent
-from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name
+from data_creation import load_patch_batch_percent, load_thresholded_norm_images_by_name
+from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name, load_mask_vectors
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, Pool3DDNNLayer
 from lasagne import nonlinearities, objectives, updates
@@ -28,25 +28,23 @@ def color_codes():
 
 
 def load_and_stack_iter1(names_lou, mask_names, patch_size):
-    for names_i in names_lou:
-        print(names_i.shape)
-    x, _ = load_patch_vectors_by_name(names_lou[0, :], mask_names, patch_size)
-    images_loaded = [[x for x, _ in load_patch_vectors_by_name(names_i, mask_names, patch_size)]
+    rois = load_thresholded_norm_images_by_name(names_lou[0, :])
+    images_loaded = [load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    _, y_train = load_patch_vectors_by_name(names_lou[0, :], mask_names, patch_size)
+    y_train = load_mask_vectors(mask_names, patch_size, rois=rois)
 
     return x_train, y_train
 
 
 def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
     pr_maps = [load_nii(roi_name).get_data() for roi_name in roi_names]
-    images_loaded = [[x for x, _ in load_patch_vectors_by_name_pr(names_i, mask_names, patch_size, pr_maps=pr_maps)]
+    images_loaded = [load_patch_vectors_by_name_pr(names_i, mask_names, patch_size, pr_maps=pr_maps)
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    _, y_train = load_patch_vectors_by_name_pr(names_lou[0, :], mask_names, patch_size, pr_maps=pr_maps)
+    y_train = load_mask_vectors(mask_names, patch_size, rois=rois)
 
     return x_train, y_train
 
