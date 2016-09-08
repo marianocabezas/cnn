@@ -81,7 +81,7 @@ def load_iter2_data(names_lou, mask_names, roi_names, patch_size, seed):
 def main():
 
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
-    parser.add_argument('-f', ''--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
+    parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', default=9)
     parser.add_argument('-c', '--conv-width', dest='conv_width', default=3)
     parser.add_argument('-d', '--dense-size', dest='dense_size', default=64)
