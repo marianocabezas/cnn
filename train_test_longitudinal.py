@@ -219,17 +219,17 @@ def main():
             try:
                 load_nii(outputname)
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
-                      c['g'] + '     Patient ' + patient[0].rsplit('/')[-3] + ' already done' + c['nc'])
+                      c['g'] + '     Patient ' + patient[0].rsplit('/')[-4] + ' already done' + c['nc'])
             except IOError:
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
-                      c['g'] + '     Testing with patient ' + c['b'] + patient[0].rsplit('/')[-3] + c['nc'])
+                      c['g'] + '     Testing with patient ' + c['b'] + patient[0].rsplit('/')[-4] + c['nc'])
                 image_nii = load_nii(patient[0])
                 image = np.zeros_like(image_nii.get_data())
-                print('    0% of data tested', end='\r')
+                print('                   0% of data tested', end='\r')
                 sys.stdout.flush()
                 for batch, centers, percent in load_patch_batch_percent(patient, 100000, patch_size):
                     y_pred = net.predict_proba(batch)
-                    print('    %f%% of data tested' % percent, end='\r')
+                    print('                   %f%% of data tested' % percent, end='\r')
                     sys.stdout.flush()
                     [x, y, z] = np.stack(centers, axis=1)
                     image[x, y, z] = y_pred[:, 1]
