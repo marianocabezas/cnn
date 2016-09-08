@@ -33,7 +33,7 @@ def load_and_stack_iter1(names_lou, mask_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    y_train = np.concatenate([np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train])
+    y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
 
     return x_train, y_train
 
@@ -44,7 +44,7 @@ def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    y_train = np.concatenate([np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train])
+    y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
 
     return x_train, y_train
 
@@ -60,7 +60,6 @@ def concatenate_and_permute(x, y, seed):
     print('                Permuting the labels')
     np.random.seed(seed)
     y_train = np.random.permutation(y_train.astype(dtype=np.int32))
-    y_train = y_train[:, y_train.shape[1] / 2, y_train.shape[2] / 2, y_train.shape[3] / 2]
 
     return x_train, y_train
 
