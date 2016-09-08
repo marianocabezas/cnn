@@ -51,8 +51,6 @@ def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
 
 def concatenate_and_permute(x, y, seed):
     print('                Creating data vector')
-    for im in x:
-        print('                (' + ','.join([str(length) for length in im.shape]) + ')')
     x_train = np.concatenate(x)
     y_train = np.concatenate(y)
 
