@@ -103,6 +103,7 @@ def main():
     conv_width = options['conv_width']
     conv_size = (conv_width, conv_width, conv_width)
     dense_size = options['dense_size']
+    sufix = '.p' + str(patch_width) + '.c' + str(conv_width) + '.d' + str(dense_size)
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -164,7 +165,7 @@ def main():
         pd_f_test = os.path.join(path, pd_f_name)
         t2_f_test = os.path.join(path, t2_f_name)
         names_test = np.array([flair_f_test, pd_f_test, t2_f_test, flair_b_test, pd_b_test, t2_b_test])
-        outputname1 = os.path.join(path, 'test' + str(i) + '.iter1.nii.gz')
+        outputname1 = os.path.join(path, 'test' + str(i) + sufix + '.iter1.nii.gz')
         try:
             net.load_params_from(net_name + 'model_weights.pkl')
         except IOError:
@@ -215,7 +216,8 @@ def main():
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
               c['g'] + '<Looking for seeds for the final iteration>' + c['nc'])
         for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
-            outputname = os.path.join('/'.join(patient[0].rsplit('/')[:-1]), 'test' + str(i) + '.iter1.nii.gz')
+            patient_path = '/'.join(patient[0].rsplit('/')[:-1])
+            outputname = os.path.join(patient_path, 'test' + str(i) + sufix + '.iter1.nii.gz')
             try:
                 load_nii(outputname)
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
@@ -241,7 +243,7 @@ def main():
         ''' Here we perform the last iteration '''
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-        outputname2 = os.path.join(path, 'test' + str(i) + '.new.iter2.nii.gz')
+        outputname2 = os.path.join(path, 'test' + str(i) + sufix + '.new.iter2.nii.gz')
         net_name = os.path.join(path, 'deep-challenge2016.final.new.')
         net = NeuralNet(
             layers=[
@@ -314,8 +316,7 @@ def main():
         image = (image1 * image2) > 0.5
         seg = np.roll(np.roll(image, 1, axis=0), 1, axis=1)
         image_nii.get_data()[:] = seg
-        outputname_final = os.path.join(path, 'test' + str(i) + '.old.final.nii.gz') if options['old'] \
-            else os.path.join(path, 'test' + str(i) + '.new.final.nii.gz')
+        outputname_final = os.path.join(path, 'test' + str(i) + sufix + '.final.nii.gz')
         image_nii.to_filename(outputname_final)
 
         gt = load_nii(os.path.join(path, mask_name)).get_data().astype(dtype=np.bool)
