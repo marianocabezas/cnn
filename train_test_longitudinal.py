@@ -95,8 +95,11 @@ def main():
     options = vars(parser.parse_args())
 
     c = color_codes()
-    patch_size = (11, 11, 11)
+    patch_width = 11
+    patch_size = (patch_width, patch_width, patch_width)
     batch_size = 100000
+    filter_width = 3
+    filter_size = (filter_width, filter_width, filter_width)
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -116,6 +119,7 @@ def main():
     pd_f_names = [os.path.join(dir_name, patient, pd_f_name) for patient in patients]
     t2_f_names = [os.path.join(dir_name, patient, t2_f_name) for patient in patients]
     names = np.stack([name for name in [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]])
+    channels = names.shape[0]
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
@@ -129,10 +133,10 @@ def main():
         net_name = os.path.join(path, 'deep-challenge2016.init.')
         net = NeuralNet(
             layers=[
-                (InputLayer, dict(name='in', shape=(None, 4, 15, 15, 15))),
-                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=(5, 5, 5), pad='same')),
+                (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
+                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=filter_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_1', pool_size=2, stride=2, mode='average_inc_pad')),
-                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=(5, 5, 5), pad='same')),
+                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=filter_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_2', pool_size=2, stride=2, mode='average_inc_pad')),
                 (DropoutLayer, dict(name='l2drop', p=0.5)),
                 (DenseLayer, dict(name='l1', num_units=256)),
@@ -237,10 +241,10 @@ def main():
         net_name = os.path.join(path, 'deep-challenge2016.final.new.')
         net = NeuralNet(
             layers=[
-                (InputLayer, dict(name='in', shape=(None, 4, 15, 15, 15))),
-                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=(5, 5, 5), pad='same')),
+                (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
+                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=filter_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_1', pool_size=2, stride=2, mode='average_inc_pad')),
-                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=(5, 5, 5), pad='same')),
+                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=filter_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_2', pool_size=2, stride=2, mode='average_inc_pad')),
                 (DropoutLayer, dict(name='l2drop', p=0.5)),
                 (DenseLayer, dict(name='l1', num_units=256)),
