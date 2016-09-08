@@ -199,8 +199,7 @@ def main():
         except IOError:
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Creating the probability map ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-            flair_name = os.path.join(path, options['flair'])
-            image_nii = load_nii(flair_name)
+            image_nii = load_nii(os.path.join(path, flair_f_name))
             image1 = np.zeros_like(image_nii.get_data())
             print('              0% of data tested', end='\r')
             sys.stdout.flush()
@@ -298,7 +297,7 @@ def main():
         except IOError:
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Creating the probability map ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-            image_nii = load_nii(os.path.join(path, flair_b_name))
+            image_nii = load_nii(os.path.join(path, flair_f_name))
             image2 = np.zeros_like(image_nii.get_data())
             print('              0% of data tested', end='\r')
             sys.stdout.flush()
