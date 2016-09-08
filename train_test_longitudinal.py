@@ -32,7 +32,7 @@ def load_and_stack_iter1(names_lou, mask_names, patch_size):
     images_loaded = [load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)
                      for names_i in names_lou]
 
-    x_train = [np.stack(images, axis=1) for images in zip(*images_loaded) if images]
+    x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
     y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
 
     return x_train, y_train
