@@ -83,8 +83,12 @@ def load_iter2_data(names_lou, mask_names, roi_names, patch_size, seed):
 def main():
 
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
-    parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
-    parser.add_argument('-p', '--prefix-folder', dest='prefix', default='time2/preprocessed/')
+    parser.add_argument('--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
+    parser.add_argument('-p', '--patch-width', dest='patch_width', default=9)
+    parser.add_argument('-c', '--conv-width', dest='conv_width', default=3)
+    parser.add_argument('-d', '--dense-size', dest='dense_size', default=64)
+    parser.add_argument('-b', '--batch-size', dest='batch_size', default=10000)
+    parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
     parser.add_argument('--t2-baseline', action='store', dest='t2_b', default='t2_moved.nii.gz')
@@ -95,11 +99,12 @@ def main():
     options = vars(parser.parse_args())
 
     c = color_codes()
-    patch_width = 11
+    patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
-    batch_size = 100000
-    filter_width = 3
-    filter_size = (filter_width, filter_width, filter_width)
+    batch_size = options['batch_size']
+    conv_width = options['conv_width']
+    conv_size = (conv_width, conv_width, conv_width)
+    dense_size = options['dense_size']
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -134,12 +139,12 @@ def main():
         net = NeuralNet(
             layers=[
                 (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
-                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=filter_size, pad='same')),
+                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=conv_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_1', pool_size=2, stride=2, mode='average_inc_pad')),
-                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=filter_size, pad='same')),
+                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=conv_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_2', pool_size=2, stride=2, mode='average_inc_pad')),
                 (DropoutLayer, dict(name='l2drop', p=0.5)),
-                (DenseLayer, dict(name='l1', num_units=256)),
+                (DenseLayer, dict(name='l1', num_units=dense_size)),
                 (DenseLayer, dict(name='out', num_units=2, nonlinearity=nonlinearities.softmax)),
             ],
             objective_loss_function=objectives.categorical_crossentropy,
@@ -242,12 +247,12 @@ def main():
         net = NeuralNet(
             layers=[
                 (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
-                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=filter_size, pad='same')),
+                (Conv3DDNNLayer, dict(name='conv1_1', num_filters=32, filter_size=conv_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_1', pool_size=2, stride=2, mode='average_inc_pad')),
-                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=filter_size, pad='same')),
+                (Conv3DDNNLayer, dict(name='conv2_1', num_filters=64, filter_size=conv_size, pad='same')),
                 (Pool3DDNNLayer, dict(name='avgpool_2', pool_size=2, stride=2, mode='average_inc_pad')),
                 (DropoutLayer, dict(name='l2drop', p=0.5)),
-                (DenseLayer, dict(name='l1', num_units=256)),
+                (DenseLayer, dict(name='l1', num_units=dense_size)),
                 (DenseLayer, dict(name='out', num_units=2, nonlinearity=nonlinearities.softmax)),
             ],
             objective_loss_function=objectives.categorical_crossentropy,
