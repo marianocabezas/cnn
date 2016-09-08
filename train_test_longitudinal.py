@@ -134,7 +134,7 @@ def main():
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'])
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-        net_name = os.path.join(path, 'deep-challenge2016.init.')
+        net_name = os.path.join(path, 'deep-longitudinal.init.' + sufix + '.')
         net = NeuralNet(
             layers=[
                 (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
