@@ -33,11 +33,7 @@ def load_and_stack_iter1(names_lou, mask_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    for x in x_train:
-        print(x.shape)
-        y = np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)])
-        print(y.shape)
-    y_train = load_mask_vectors(mask_names, patch_size, rois=rois)
+    y_train = np.concatenate([np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train])
 
     return x_train, y_train
 
@@ -48,7 +44,7 @@ def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
                      for names_i in names_lou]
 
     x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
-    y_train = load_mask_vectors(mask_names, patch_size, rois=pr_maps)
+    y_train = np.concatenate([np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train])
 
     return x_train, y_train
 
