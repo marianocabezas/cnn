@@ -277,7 +277,7 @@ def main():
                   c['g'] + 'Loading the data for ' + c['b'] + 'iteration 2' + c['nc'])
             names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
             paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
-            roi_names = [os.path.join(p_path, 'test' + str(i) + '.iter1.nii.gz') for p_path in paths]
+            roi_names = [os.path.join(p_path, 'test' + str(i) + sufix + '.iter1.nii.gz') for p_path in paths]
             mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
 
             x_train, y_train = load_iter2_data(
