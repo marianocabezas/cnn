@@ -131,10 +131,11 @@ def main():
     for i in range(0, 15):
         case = patients[i]
         path = os.path.join(dir_name, case)
-        print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'])
+        print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'] +
+              c['g'] + ' (%d/%d)' % (i+1, 15))
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-        net_name = os.path.join(path, 'deep-longitudinal.init.' + sufix + '.')
+        net_name = os.path.join(path, 'deep-longitudinal.init' + sufix + '.')
         net = NeuralNet(
             layers=[
                 (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
@@ -243,8 +244,8 @@ def main():
         ''' Here we perform the last iteration '''
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-        outputname2 = os.path.join(path, 'test' + str(i) + sufix + '.new.iter2.nii.gz')
-        net_name = os.path.join(path, 'deep-challenge2016.final.new.')
+        outputname2 = os.path.join(path, 'test' + str(i) + sufix + '.iter2.nii.gz')
+        net_name = os.path.join(path, 'deep-longitudinal.final' + sufix + '.')
         net = NeuralNet(
             layers=[
                 (InputLayer, dict(name='in', shape=(None, channels, patch_width, patch_width, patch_width))),
