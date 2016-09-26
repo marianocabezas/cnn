@@ -316,13 +316,12 @@ def main():
             image_nii.to_filename(outputname2)
 
         image = (image1 * image2) > 0.5
-        seg = np.roll(np.roll(image, 1, axis=0), 1, axis=1)
-        image_nii.get_data()[:] = seg
+        image_nii.get_data()[:] = image
         outputname_final = os.path.join(path, 'test' + str(i) + sufix + '.final.nii.gz')
         image_nii.to_filename(outputname_final)
 
         gt = load_nii(os.path.join(path, mask_name)).get_data().astype(dtype=np.bool)
-        dsc = np.sum(2.0 * np.logical_and(gt, seg)) / (np.sum(gt) + np.sum(seg))
+        dsc = np.sum(2.0 * np.logical_and(gt, image)) / (np.sum(gt) + np.sum(image))
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<DSC value for ' + c['c'] + case + c['g'] + ' = ' + c['b'] + str(dsc) + c['nc'] + c['g'] + '>' + c['nc'])
 
