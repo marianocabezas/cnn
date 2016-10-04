@@ -116,6 +116,7 @@ def main():
     dir_name = options['dir_name']
     patients = [f for f in sorted(os.listdir(dir_name))
                 if os.path.isdir(os.path.join(dir_name, f))]
+    n_patients = len(patients)
     flair_b_names = [os.path.join(dir_name, patient, flair_b_name) for patient in patients]
     pd_b_names = [os.path.join(dir_name, patient, pd_b_name) for patient in patients]
     t2_b_names = [os.path.join(dir_name, patient, t2_b_name) for patient in patients]
@@ -128,11 +129,13 @@ def main():
 
     print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
 
-    for i in range(0, 15):
+
+
+    for i in range(0, n_patients):
         case = patients[i]
         path = os.path.join(dir_name, case)
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'] +
-              c['g'] + ' (%d/%d)' % (i+1, 15))
+              c['g'] + ' (%d/%d)' % (i+1, n_patients))
         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
               '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
         net_name = os.path.join(path, 'deep-longitudinal.init' + sufix + '.')
