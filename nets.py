@@ -182,7 +182,8 @@ def create_classifier_net(
         patience,
         multichannel,
         name,
-        obj_f='xent'
+        obj_f='xent',
+        epochs=200
 ):
 
     objective_function = {
@@ -199,7 +200,7 @@ def create_classifier_net(
         objective_loss_function=objective_function[obj_f],
         custom_scores=[
             ('prob dsc', objective_f.accuracy_dsc_probabilistic),
-            ('dsc', objective_f.accuracy_dsc)
+            ('dsc', objective_f.accuracy_dsc),
         ],
 
         # update=updates.adadelta,
@@ -211,11 +212,22 @@ def create_classifier_net(
         batch_iterator_train=BatchIterator(batch_size=1024),
 
         verbose=11,
-        max_epochs=200
+        max_epochs=epochs
     )
 
 
-def create_segmentation_net(layers, input_shape, convo_size, pool_size, number_filters, patience, multichannel, name):
+def create_segmentation_net(
+        layers,
+        input_shape,
+        convo_size,
+        pool_size,
+        number_filters,
+        patience,
+        multichannel,
+        name,
+        custom_scores=None,
+        epochs=200
+):
     return NeuralNet(
 
         layers=get_layers_string(layers, input_shape, convo_size, pool_size, number_filters, multichannel),
@@ -227,8 +239,10 @@ def create_segmentation_net(layers, input_shape, convo_size, pool_size, number_f
 
         on_epoch_finished=get_epoch_finished(name, patience),
 
+        custom_scores=custom_scores,
+
         verbose=11,
-        max_epochs=200
+        max_epochs=epochs
     )
 
 
@@ -240,7 +254,8 @@ def create_cnn3d_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs
 ):
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
@@ -256,7 +271,8 @@ def create_cnn3d_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=epochs
     )
 
 
@@ -268,7 +284,8 @@ def create_unet3d_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs
 ):
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
@@ -283,7 +300,8 @@ def create_unet3d_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=epochs
     )
 
 
@@ -295,7 +313,8 @@ def create_unet3d_seg_string(
             number_filters,
             patience,
             multichannel,
-            name
+            name,
+            epochs
 ):
 
     # We create the final string defining the net with the necessary input and reshape layers
@@ -311,7 +330,8 @@ def create_unet3d_seg_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=epochs
     )
 
 
@@ -323,7 +343,8 @@ def create_unet3d_shortcuts_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs
 ):
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
@@ -339,7 +360,8 @@ def create_unet3d_shortcuts_det_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=epochs
     )
 
 
@@ -351,7 +373,8 @@ def create_unet3d_shortcuts_seg_string(
             number_filters,
             patience,
             multichannel,
-            name
+            name,
+            epochs
 ):
 
     # We create the final string defining the net with the necessary input and reshape layers
@@ -368,7 +391,8 @@ def create_unet3d_shortcuts_seg_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=epochs
     )
 
 
@@ -380,7 +404,8 @@ def create_encoder3d_string(
         number_filters,
         patience,
         multichannel,
-        name
+        name,
+        epochs=200
 ):
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
@@ -398,7 +423,7 @@ def create_encoder3d_string(
         on_epoch_finished=get_epoch_finished(name, patience),
 
         verbose=11,
-        max_epochs=200
+        max_epochs=epochs
     )
 
     return encoder
