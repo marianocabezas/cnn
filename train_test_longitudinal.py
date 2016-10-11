@@ -85,7 +85,6 @@ def main():
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
     parser.add_argument('-c', '--conv-width', dest='conv_width', type=int, default=3)
-    parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=64)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=32)
@@ -106,8 +105,7 @@ def main():
     patch_size = (patch_width, patch_width, patch_width)
     batch_size = options['batch_size']
     conv_width = options['conv_width']
-    dense_size = options['dense_size']
-    sufix = '.%s.p%d.c%d.d%d.n%d' % (layers, patch_width, conv_width, dense_size, n_filters)
+    sufix = '.%s.p%d.c%d.n%d' % (layers, patch_width, conv_width, n_filters)
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -147,10 +145,10 @@ def main():
             conv_width,
             2,
             n_filters,
-            50,
+            10,
             True,
             net_name,
-            50
+            200
         )
         flair_b_test = os.path.join(path, flair_b_name)
         pd_b_test = os.path.join(path, pd_b_name)

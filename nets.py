@@ -34,7 +34,15 @@ def get_back_pathway(forward_pathway, multi_channel=True):
     return back_pathway
 
 
-def get_layers_string(net_layers, input_shape, convo_size, pool_size, number_filters, multi_channel=True):
+def get_layers_string(
+        net_layers,
+        input_shape,
+        convo_size=3,
+        pool_size=2,
+        dense_size=256,
+        number_filters=32,
+        multi_channel=True
+):
     input_shape_single = tuple(input_shape[:1] + (1,) + input_shape[2:])
     channels = range(0, input_shape[1])
     previous_layer = InputLayer(name='\033[30minput\033[0m', shape=input_shape) if multi_channel\
@@ -169,6 +177,13 @@ def get_layers_string(net_layers, input_shape, convo_size, pool_size, number_fil
                 incomings=previous_layer,
                 name='\033[32munion\033[0m'
             )
+        elif layer == 'D':
+            previous_layer = DenseLayer(
+                incoming=previous_layer,
+                name='\033[32mdense\033[0m',
+                num_units=dense_size,
+                nonlinearity=nonlinearities.softmax
+            )
         elif layer == 'S':
             previous_layer = DenseLayer(
                 incoming=previous_layer,
@@ -189,12 +204,7 @@ def get_layers_string(net_layers, input_shape, convo_size, pool_size, number_fil
 
 def create_classifier_net(
         layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
         patience,
-        multichannel,
         name,
         obj_f='xent',
         epochs=200
@@ -208,7 +218,7 @@ def create_classifier_net(
 
     return NeuralNet(
 
-        layers=get_layers_string(layers, input_shape, convo_size, pool_size, number_filters, multichannel),
+        layers=layers,
 
         regression=False,
         objective_loss_function=objective_function[obj_f],
@@ -232,19 +242,14 @@ def create_classifier_net(
 
 def create_segmentation_net(
         layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
         patience,
-        multichannel,
         name,
         custom_scores=None,
         epochs=200
 ):
     return NeuralNet(
 
-        layers=get_layers_string(layers, input_shape, convo_size, pool_size, number_filters, multichannel),
+        layers=layers,
 
         regression=True,
 
@@ -265,6 +270,7 @@ def create_cnn3d_det_string(
         input_shape,
         convo_size,
         pool_size,
+        dense_size,
         number_filters,
         patience,
         multichannel,
@@ -274,17 +280,22 @@ def create_cnn3d_det_string(
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
     # calling the main python function
-    final_layers = 'rC' if multichannel else 'rUC'
+    final_layers = 'rDC' if multichannel else 'rUC'
     final_layers = cnn_path.replace('a', 'ao').replace('m', 'mo') + final_layers
 
-    return create_classifier_net(
+    layer_list = get_layers_string(
         final_layers,
         input_shape,
         convo_size,
         pool_size,
+        dense_size,
         number_filters,
+        multichannel
+    )
+
+    return create_classifier_net(
+        layer_list,
         patience,
-        multichannel,
         name,
         epochs=epochs
     )
@@ -306,14 +317,18 @@ def create_unet3d_det_string(
     # calling the main python function
     final_layers = 'i' + forward_path + get_back_pathway(forward_path, multichannel) + 'r' + 'C'
 
+    layer_list = get_layers_string(
+        net_layers=final_layers,
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters,
+        multi_channel=multichannel
+    )
+
     return create_classifier_net(
-        final_layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
+        layer_list,
         patience,
-        multichannel,
         name,
         epochs=epochs
     )
@@ -336,14 +351,18 @@ def create_unet3d_seg_string(
     # calling the main python function
     final_layers = 'i' + forward_path + get_back_pathway(forward_path, multichannel) + 'r' + 'S'
 
+    layer_list=get_layers_string(
+        net_layers=final_layers,
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters,
+        multi_channel=multichannel
+    )
+
     return create_segmentation_net(
-        final_layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
+        layer_list,
         patience,
-        multichannel,
         name,
         epochs=epochs
     )
@@ -366,14 +385,18 @@ def create_unet3d_shortcuts_det_string(
     back_pathway = get_back_pathway(forward_path, multichannel).replace('d', 'sd').replace('f', 'sf')
     final_layers = (forward_path + back_pathway + 'r' + 'C').replace('csd', 'cd')
 
+    layer_list = get_layers_string(
+        net_layers=final_layers,
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters,
+        multi_channel=multichannel
+    )
+
     return create_classifier_net(
-        final_layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
+        layer_list,
         patience,
-        multichannel,
         name,
         epochs=epochs
     )
@@ -397,12 +420,17 @@ def create_unet3d_shortcuts_seg_string(
     back_pathway = get_back_pathway(forward_path, multichannel).replace('d', 'sd').replace('f', 'sf')
     final_layers = (forward_path + back_pathway + 'r' + 'S').replace('csd', 'cd')
 
+    layer_list=get_layers_string(
+        net_layers=final_layers,
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters,
+        multi_channel=multichannel
+    )
+
     return create_segmentation_net(
-        final_layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        number_filters,
+        layer_list,
         patience,
         multichannel,
         name,
