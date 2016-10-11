@@ -3,7 +3,8 @@ from nolearn.lasagne import NeuralNet, BatchIterator
 from nolearn.lasagne.handlers import SaveWeights
 from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
 from lasagne import objectives
-from lasagne.layers import InputLayer, ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
+from lasagne.layers import InputLayer
+from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, BatchNormLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer
 from layers import Unpooling3D
 from lasagne import updates
@@ -45,18 +46,25 @@ def get_layers_string(net_layers, input_shape, convo_size, pool_size, number_fil
     c_size = (convo_size, convo_size, convo_size)
     for layer in net_layers:
         if layer == 'c':
-            conv_layer = Conv3DDNNLayer(
-                incoming=previous_layer,
-                name='\033[34mconv%d\033[0m' % c_index,
-                num_filters=number_filters,
-                filter_size=c_size,
-                pad='valid'
-            ) if multi_channel else [Conv3DDNNLayer(
-                incoming=layer,
-                name='\033[34mconv%d_%d\033[0m' % (c_index, i),
-                num_filters=number_filters,
-                filter_size=c_size,
-                pad='valid') for layer, i in zip(previous_layer, channels)]
+            conv_layer = BatchNormLayer(
+                incoming=Conv3DDNNLayer(
+                    incoming=previous_layer,
+                    name='\033[34mconv%d\033[0m' % c_index,
+                    num_filters=number_filters,
+                    filter_size=c_size,
+                    pad='valid'
+                ),
+                name='norm%d' % c_index
+            ) if multi_channel else [BatchNormLayer(
+                incoming=Conv3DDNNLayer(
+                    incoming=layer,
+                    name='\033[34mconv%d_%d\033[0m' % (c_index, i),
+                    num_filters=number_filters,
+                    filter_size=c_size,
+                    pad='valid'
+                ),
+                name='norm%d_%d' % (c_index, i)
+            ) for layer, i in zip(previous_layer, channels)]
             convolutions['conv%d' % c_index] = conv_layer
             previous_layer = conv_layer
             c_index += 1
@@ -105,18 +113,24 @@ def get_layers_string(net_layers, input_shape, convo_size, pool_size, number_fil
             ) for convolutional, layer, i in zip(convolutions['conv%d' % (c_index - 1)], previous_layer, channels)]
         elif layer == 'd':
             c_index -= 1
-            previous_layer = Conv3DDNNLayer(
-                incoming=previous_layer,
-                name='\033[36mdeconv%d\033[0m' % c_index,
-                num_filters=number_filters,
-                filter_size=c_size,
-                pad='full'
-            ) if multi_channel else [Conv3DDNNLayer(
-                incoming=layer,
-                name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
-                num_filters=number_filters,
-                filter_size=c_size,
-                pad='full'
+            previous_layer = BatchNormLayer(
+                incoming=Conv3DDNNLayer(
+                    incoming=previous_layer,
+                    name='\033[36mdeconv%d\033[0m' % c_index,
+                    num_filters=number_filters,
+                    filter_size=c_size,
+                    pad='full'
+                ),
+                name='denorm%d' % c_index
+            ) if multi_channel else [BatchNormLayer(
+                incoming=Conv3DDNNLayer(
+                    incoming=layer,
+                    name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
+                    num_filters=number_filters,
+                    filter_size=c_size,
+                    pad='full'
+                ),
+                name='denorm%d_%d' % (c_index, i)
             ) for layer, i in zip(previous_layer, channels)]
         elif layer == 'o':
             previous_layer = DropoutLayer(
