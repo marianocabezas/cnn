@@ -5,8 +5,8 @@ from nolearn.lasagne.handlers import SaveWeights
 from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
 from lasagne import objectives
 from lasagne.layers import InputLayer
-from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, BatchNormLayer
-from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer
+from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
+from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, BatchNormDNNLayer
 from layers import Unpooling3D
 from lasagne import updates
 from lasagne import nonlinearities
@@ -56,7 +56,7 @@ def get_layers_string(
     c_size = (convo_size, convo_size, convo_size)
     for layer in net_layers:
         if layer == 'c':
-            conv_layer = BatchNormLayer(
+            conv_layer = BatchNormDNNLayer(
                 incoming=Conv3DDNNLayer(
                     incoming=previous_layer,
                     name='\033[34mconv%d\033[0m' % c_index,
@@ -65,7 +65,7 @@ def get_layers_string(
                     pad=padding
                 ),
                 name='norm%d' % c_index
-            ) if multi_channel else [BatchNormLayer(
+            ) if multi_channel else [BatchNormDNNLayer(
                 incoming=Conv3DDNNLayer(
                     incoming=layer,
                     name='\033[34mconv%d_%d\033[0m' % (c_index, i),
@@ -123,7 +123,7 @@ def get_layers_string(
             ) for convolutional, layer, i in zip(convolutions['conv%d' % (c_index - 1)], previous_layer, channels)]
         elif layer == 'd':
             c_index -= 1
-            previous_layer = BatchNormLayer(
+            previous_layer = BatchNormDNNLayer(
                 incoming=Conv3DDNNLayer(
                     incoming=previous_layer,
                     name='\033[36mdeconv%d\033[0m' % c_index,
@@ -132,7 +132,7 @@ def get_layers_string(
                     pad='full'
                 ),
                 name='denorm%d' % c_index
-            ) if multi_channel else [BatchNormLayer(
+            ) if multi_channel else [BatchNormDNNLayer(
                 incoming=Conv3DDNNLayer(
                     incoming=layer,
                     name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
@@ -231,7 +231,7 @@ def get_convolutional_block(
         pool_size=pool_size,
         mode='average_inc_pad'
     )
-    normalisation = BatchNormLayer(
+    normalisation = BatchNormDNNLayer(
         incoming=pool,
         name='norm%d' % index
     )
