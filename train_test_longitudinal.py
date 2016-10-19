@@ -7,13 +7,6 @@ import numpy as np
 from nets import create_cnn3d_det_string
 from data_creation import load_patch_batch_percent, load_thresholded_norm_images_by_name
 from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name
-# from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
-# from lasagne.layers.dnn import Conv3DDNNLayer, Pool3DDNNLayer
-# from lasagne import nonlinearities, objectives, updates
-# from nolearn.lasagne import TrainSplit
-# from nolearn.lasagne import NeuralNet, BatchIterator
-# from nolearn.lasagne.handlers import SaveWeights
-# from nolearn_utils.hooks import EarlyStopping
 from nibabel import load as load_nii
 
 
@@ -85,7 +78,6 @@ def main():
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
     parser.add_argument('-c', '--conv-width', dest='conv_width', type=int, default=3)
-    parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=64)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=32)
@@ -97,17 +89,18 @@ def main():
     parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected.nii.gz')
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
+    parser.add_argument('--padding', action='store', dest='padding', default='valid')
     options = vars(parser.parse_args())
 
     c = color_codes()
+    padding = options['padding']
     layers = ''.join(options['layers'])
     n_filters = options['number_filters']
     patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
     batch_size = options['batch_size']
     conv_width = options['conv_width']
-    dense_size = options['dense_size']
-    sufix = '.%s.p%d.c%d.d%d.n%d' % (layers, patch_width, conv_width, dense_size, n_filters)
+    sufix = '.%s.p%d.c%d.n%d.pad_%s' % (layers, patch_width, conv_width, n_filters, padding)
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -145,8 +138,8 @@ def main():
             layers,
             (None, channels, patch_width, patch_width, patch_width),
             conv_width,
+            padding,
             2,
-            dense_size,
             n_filters,
             10,
             True,
@@ -244,8 +237,8 @@ def main():
             layers,
             (None, channels, patch_width, patch_width, patch_width),
             conv_width,
+            padding,
             2,
-            dense_size,
             n_filters,
             50,
             True,

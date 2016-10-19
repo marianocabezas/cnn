@@ -1,4 +1,5 @@
 from operator import mul
+import itertools
 from nolearn.lasagne import NeuralNet, BatchIterator
 from nolearn.lasagne.handlers import SaveWeights
 from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
@@ -41,7 +42,8 @@ def get_layers_string(
         pool_size=2,
         dense_size=256,
         number_filters=32,
-        multi_channel=True
+        multi_channel=True,
+        padding='valid'
 ):
     input_shape_single = tuple(input_shape[:1] + (1,) + input_shape[2:])
     channels = range(0, input_shape[1])
@@ -60,7 +62,7 @@ def get_layers_string(
                     name='\033[34mconv%d\033[0m' % c_index,
                     num_filters=number_filters,
                     filter_size=c_size,
-                    pad='valid'
+                    pad=padding
                 ),
                 name='norm%d' % c_index
             ) if multi_channel else [BatchNormLayer(
@@ -69,7 +71,7 @@ def get_layers_string(
                     name='\033[34mconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
                     filter_size=c_size,
-                    pad='valid'
+                    pad=padding
                 ),
                 name='norm%d_%d' % (c_index, i)
             ) for layer, i in zip(previous_layer, channels)]
@@ -202,6 +204,41 @@ def get_layers_string(
     return previous_layer
 
 
+def get_convolutional_block(
+        incoming,
+        convo_size=3,
+        num_filters=32,
+        pool_size=2,
+        drop=0.5,
+        counter=itertools.count()
+):
+    index = counter.next()
+    convolution = Conv3DDNNLayer(
+        incoming=incoming,
+        name='\033[34mconv%d\033[0m' % index,
+        num_filters=num_filters,
+        filter_size=convo_size,
+        pad='valid'
+    )
+    dropout = DropoutLayer(
+        incoming=convolution,
+        name='drop%d' % index,
+        p=drop
+    )
+    pool = Pool3DDNNLayer(
+        incoming=dropout,
+        name='\033[31mavg_pool%d\033[0m' % index,
+        pool_size=pool_size,
+        mode='average_inc_pad'
+    )
+    normalisation = BatchNormLayer(
+        incoming=pool,
+        name='norm%d' % index
+    )
+
+    return normalisation
+
+
 def create_classifier_net(
         layers,
         patience,
@@ -269,8 +306,8 @@ def create_cnn3d_det_string(
         cnn_path,
         input_shape,
         convo_size,
+        padding,
         pool_size,
-        dense_size,
         number_filters,
         patience,
         multichannel,
@@ -280,17 +317,17 @@ def create_cnn3d_det_string(
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
     # calling the main python function
-    final_layers = 'rDC' if multichannel else 'rUC'
+    final_layers = 'rC' if multichannel else 'rUC'
     final_layers = cnn_path.replace('a', 'ao').replace('m', 'mo') + final_layers
 
     layer_list = get_layers_string(
-        final_layers,
-        input_shape,
-        convo_size,
-        pool_size,
-        dense_size,
-        number_filters,
-        multichannel
+        net_layers=final_layers,
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters,
+        multi_channel=multichannel,
+        padding=padding
     )
 
     return create_classifier_net(
@@ -351,7 +388,7 @@ def create_unet3d_seg_string(
     # calling the main python function
     final_layers = 'i' + forward_path + get_back_pathway(forward_path, multichannel) + 'r' + 'S'
 
-    layer_list=get_layers_string(
+    layer_list = get_layers_string(
         net_layers=final_layers,
         input_shape=input_shape,
         convo_size=convo_size,
@@ -420,7 +457,7 @@ def create_unet3d_shortcuts_seg_string(
     back_pathway = get_back_pathway(forward_path, multichannel).replace('d', 'sd').replace('f', 'sf')
     final_layers = (forward_path + back_pathway + 'r' + 'S').replace('csd', 'cd')
 
-    layer_list=get_layers_string(
+    layer_list = get_layers_string(
         net_layers=final_layers,
         input_shape=input_shape,
         convo_size=convo_size,
