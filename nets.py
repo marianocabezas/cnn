@@ -6,7 +6,7 @@ from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyS
 from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
-from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, BatchNormDNNLayer
+from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
 from layers import Unpooling3D
 from lasagne import updates
 from lasagne import nonlinearities
@@ -56,8 +56,8 @@ def get_layers_string(
     c_size = (convo_size, convo_size, convo_size)
     for layer in net_layers:
         if layer == 'c':
-            conv_layer = BatchNormDNNLayer(
-                incoming=Conv3DDNNLayer(
+            conv_layer = batch_norm_dnn(
+                layer=Conv3DDNNLayer(
                     incoming=previous_layer,
                     name='\033[34mconv%d\033[0m' % c_index,
                     num_filters=number_filters,
@@ -65,8 +65,8 @@ def get_layers_string(
                     pad=padding
                 ),
                 name='norm%d' % c_index
-            ) if multi_channel else [BatchNormDNNLayer(
-                incoming=Conv3DDNNLayer(
+            ) if multi_channel else [batch_norm_dnn(
+                layer=Conv3DDNNLayer(
                     incoming=layer,
                     name='\033[34mconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
@@ -123,8 +123,8 @@ def get_layers_string(
             ) for convolutional, layer, i in zip(convolutions['conv%d' % (c_index - 1)], previous_layer, channels)]
         elif layer == 'd':
             c_index -= 1
-            previous_layer = BatchNormDNNLayer(
-                incoming=Conv3DDNNLayer(
+            previous_layer = batch_norm_dnn(
+                layer=Conv3DDNNLayer(
                     incoming=previous_layer,
                     name='\033[36mdeconv%d\033[0m' % c_index,
                     num_filters=number_filters,
@@ -132,8 +132,8 @@ def get_layers_string(
                     pad='full'
                 ),
                 name='denorm%d' % c_index
-            ) if multi_channel else [BatchNormDNNLayer(
-                incoming=Conv3DDNNLayer(
+            ) if multi_channel else [batch_norm_dnn(
+                layer=Conv3DDNNLayer(
                     incoming=layer,
                     name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
@@ -225,18 +225,19 @@ def get_convolutional_block(
         name='drop%d' % index,
         p=drop
     )
+    normalisation = batch_norm_dnn(
+        layer=dropout,
+        name='norm%d' % index
+    )
     pool = Pool3DDNNLayer(
-        incoming=dropout,
+        incoming=normalisation,
         name='\033[31mavg_pool%d\033[0m' % index,
         pool_size=pool_size,
         mode='average_inc_pad'
     )
-    normalisation = BatchNormDNNLayer(
-        incoming=pool,
-        name='norm%d' % index
-    )
 
-    return normalisation
+
+    return pool
 
 
 def create_classifier_net(
