@@ -125,7 +125,7 @@ def main():
     channels = names.shape[0]
     seed = np.random.randint(np.iinfo(np.int32).max)
 
-    metrics_file = os.path.join(dir_name, 'metrics_' + sufix)
+    metrics_file = os.path.join(dir_name, 'metrics' + sufix)
     with open(metrics_file, 'w') as f:
 
         print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
