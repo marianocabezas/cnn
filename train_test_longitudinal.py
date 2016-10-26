@@ -8,7 +8,7 @@ from nets import create_cnn3d_det_string
 from data_creation import load_patch_batch_percent, load_thresholded_norm_images_by_name
 from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name
 from nibabel import load as load_nii
-from data_manipulation.metrics import dsc_seg
+from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
 
 
 def color_codes():
@@ -300,14 +300,22 @@ def main():
             image_nii.to_filename(outputname_final)
 
             gt = load_nii(os.path.join(path, mask_name)).get_data().astype(dtype=np.bool)
-            dsc1 = dsc_seg(gt, image1 > 0.5)
-            dsc2 = dsc_seg(gt, image2 > 0.5)
+            seg1 = image1 > 0.5
+            seg2 = image1 > 0.5
+            dsc1 = dsc_seg(gt, seg1)
+            dsc2 = dsc_seg(gt, seg2)
             dsc_final = dsc_seg(gt, image)
+            tpf1 = tp_fraction_seg(gt, seg1)
+            tpf2 = tp_fraction_seg(gt, seg2)
+            tpf_final = tp_fraction_seg(gt, image)
+            fpf1 = fp_fraction_seg(gt, seg1)
+            fpf2 = fp_fraction_seg(gt, seg2)
+            fpf_final = fp_fraction_seg(gt, image)
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<DSC ' + c['c'] + case + c['g'] + ' = ' + c['b'] + str(dsc_final) + c['nc'] + c['g'] + '>' + c['nc'])
-            f.write('%s;Test 1: %f\n' % (case, dsc1))
-            f.write('%s;Test 2: %f\n' % (case, dsc2))
-            f.write('%s;Final: %f\n' % (case, dsc_final))
+            f.write('%s;Test 1; %f;%f;%f\n' % (case, dsc1, tpf1, fpf1))
+            f.write('%s;Test 2; %f;%f;%f\n' % (case, dsc2, tpf2, fpf2))
+            f.write('%s;Final; %f;%f;%f\n' % (case, dsc_final, tpf_final, fpf_final))
 
 
 if __name__ == '__main__':
