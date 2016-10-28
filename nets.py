@@ -220,22 +220,21 @@ def get_convolutional_block(
         filter_size=convo_size,
         pad='valid'
     )
+    normalisation = batch_norm_dnn(
+        layer=convolution,
+        name='norm%d' % index
+    )
     dropout = DropoutLayer(
-        incoming=convolution,
+        incoming=normalisation,
         name='drop%d' % index,
         p=drop
     )
-    normalisation = batch_norm_dnn(
-        layer=dropout,
-        name='norm%d' % index
-    )
     pool = Pool3DDNNLayer(
-        incoming=normalisation,
+        incoming=dropout,
         name='\033[31mavg_pool%d\033[0m' % index,
         pool_size=pool_size,
         mode='average_inc_pad'
     )
-
 
     return pool
 
