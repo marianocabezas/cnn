@@ -143,7 +143,7 @@ def _interpolate(im, x, y, z, out_height, out_width, out_depth):
     y = (y + 1) / 2 * (height_f - 1)
     z = (z + 1) / 2 * (depth_f - 1)
 
-    # obtain indices of the 2x2 pixel neighborhood surrounding the coordinates;
+    # obtain indices of the 2x2x2 pixel neighborhood surrounding the coordinates;
     # we need those in floatX for interpolation and in int64 for indexing. for
     # indexing, we need to take care they do not extend past the image.
     x0_f = T.floor(x)
@@ -162,18 +162,24 @@ def _interpolate(im, x, y, z, out_height, out_width, out_depth):
     # The input is [num_batch, height, width, depth, channels]. We do the lookup in
     # the flattened input, i.e [num_batch*height*width*depth, channels]. We need
     # to offset all indices to match the flat version
-    dim3 = width * height * depth
-    dim2 = width
+    dim1 = height * width * depth
+    dim2 = width * depth
+    dim3 = depth
     base = T.repeat(
-        T.arange(num_batch, dtype='int64') * dim3, out_height * out_width * out_depth)
+        T.arange(num_batch, dtype='int64') * dim1, out_height * out_width * out_depth)
     base_y0 = base + y0 * dim2
     base_y1 = base + y1 * dim2
-    base_x0 = base_y0 + x0 * height
-    base_x1 = base_y0 + x1 * height
-    idx_a = base_y0 + x0
-    idx_b = base_y1 + x0
-    idx_c = base_y0 + x1
-    idx_d = base_y1 + x1
+    base_x0 = x0 * dim3
+    base_x1 = x1 * dim3
+    idx_a = base_y0 + base_x0 + z0
+    idx_b = base_y1 + base_x0 + z0
+    idx_c = base_y0 + base_x1 + z0
+    idx_d = base_y1 + base_x1 + z0
+    idx_e = base_y0 + base_x0 + z1
+    idx_f = base_y1 + base_x0 + z1
+    idx_g = base_y0 + base_x1 + z1
+    idx_h = base_y1 + base_x1 + z1
+
 
     # use indices to lookup pixels for all samples
     im_flat = im.reshape((-1, channels))
@@ -181,13 +187,21 @@ def _interpolate(im, x, y, z, out_height, out_width, out_depth):
     Ib = im_flat[idx_b]
     Ic = im_flat[idx_c]
     Id = im_flat[idx_d]
+    Ie = im_flat[idx_e]
+    If = im_flat[idx_f]
+    Ig = im_flat[idx_g]
+    Ih = im_flat[idx_h]
 
     # calculate interpolated values
-    wa = ((x1_f - x) * (y1_f - y)).dimshuffle(0, 'x')
-    wb = ((x1_f - x) * (y - y0_f)).dimshuffle(0, 'x')
-    wc = ((x - x0_f) * (y1_f - y)).dimshuffle(0, 'x')
-    wd = ((x - x0_f) * (y - y0_f)).dimshuffle(0, 'x')
-    output = T.sum([wa * Ia, wb * Ib, wc * Ic, wd * Id], axis=0)
+    wa = ((x1_f - x) * (y1_f - y) * (z1_f - z)).dimshuffle(0, 'x')
+    wb = ((x1_f - x) * (y - y0_f) * (z1_f - z)).dimshuffle(0, 'x')
+    wc = ((x - x0_f) * (y1_f - y) * (z1_f - z)).dimshuffle(0, 'x')
+    wd = ((x - x0_f) * (y - y0_f) * (z1_f - z)).dimshuffle(0, 'x')
+    we = ((x1_f - x) * (y1_f - y) * (z0_f - z)).dimshuffle(0, 'x')
+    wf = ((x1_f - x) * (y - y0_f) * (z0_f - z)).dimshuffle(0, 'x')
+    wg = ((x - x0_f) * (y1_f - y) * (z0_f - z)).dimshuffle(0, 'x')
+    wh = ((x - x0_f) * (y - y0_f) * (z0_f - z)).dimshuffle(0, 'x')
+    output = T.sum([wa * Ia, wb * Ib, wc * Ic, wd * Id, we * Ie, wf * If, wg *Ig, wh * Ih], axis=0)
     return output
 
 

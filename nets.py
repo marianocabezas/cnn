@@ -7,10 +7,12 @@ from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
-from layers import Unpooling3D
+from layers import Unpooling3D, Transformer3DLayer
 from lasagne import updates
 from lasagne import nonlinearities
+from lasagne.init import Constant
 import objective_functions as objective_f
+import numpy as np
 
 
 def get_epoch_finished(name, patience):
@@ -89,6 +91,34 @@ def get_layers_string(
                 name='\033[31mavg_pool%d_%d\033[0m' % (p_index, i),
                 pool_size=pool_size,
                 mode='average_inc_pad'
+            ) for layer, i in zip(previous_layer, channels)]
+            p_index += 1
+        elif layer == 't':
+            b = np.zeros((3, 4), dtype='float32')
+            b[0, 0] = 1
+            b[1, 1] = 1
+            b[2, 2] = 1
+            W = Constant(0.0)
+            previous_layer = Transformer3DLayer(
+                localization_network=DenseLayer(
+                    incoming=layer,
+                    num_units=12,
+                    W=W,
+                    b=b.flatten,
+                    nonlinearity=None
+                ),
+                incoming=previous_layer,
+                name='\033[33transf\033[0m',
+            ) if multi_channel else [Transformer3DLayer(
+                localization_network=DenseLayer(
+                    incoming=layer,
+                    num_units=12,
+                    W=W,
+                    b=b.flatten,
+                    nonlinearity=None
+                ),
+                incoming=layer,
+                name='\033[33transf_%d\033[0m' % i,
             ) for layer, i in zip(previous_layer, channels)]
             p_index += 1
         elif layer == 'm':
