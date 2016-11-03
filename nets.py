@@ -101,7 +101,7 @@ def get_layers_string(
             W = Constant(0.0)
             previous_layer = Transformer3DLayer(
                 localization_network=DenseLayer(
-                    incoming=layer,
+                    incoming=previous_layer,
                     num_units=12,
                     W=W,
                     b=b.flatten,
@@ -111,7 +111,7 @@ def get_layers_string(
                 name='\033[33transf\033[0m',
             ) if multi_channel else [Transformer3DLayer(
                 localization_network=DenseLayer(
-                    incoming=layer,
+                    incoming=previous_layer,
                     num_units=12,
                     W=W,
                     b=b.flatten,
