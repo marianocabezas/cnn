@@ -75,7 +75,10 @@ class Transformer3DLayer(MergeLayer):
 
         input_shp, loc_shp = self.input_shapes
 
-        if loc_shp[-1] != 12 or len(loc_shp) != 12:
+        if loc_shp[-1] != 12:
+            print loc_shp[-1]
+
+        if loc_shp[-1] != 12 or len(loc_shp) != 2:
             raise ValueError("The localization network must have "
                              "output shape: (batch_size, 12)")
         if len(input_shp) != 5:
