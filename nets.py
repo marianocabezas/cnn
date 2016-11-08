@@ -80,6 +80,35 @@ def get_layers_string(
             convolutions['conv%d' % c_index] = conv_layer
             previous_layer = conv_layer
             c_index += 1
+        elif layer == 't':
+            b = np.zeros((3, 4), dtype='float32')
+            b[0, 0] = 1
+            b[1, 1] = 1
+            b[2, 2] = 1
+            W = Constant(0.0)
+            previous_layer = Transformer3DLayer(
+                localization_network=DenseLayer(
+                    incoming=previous_layer,
+                    name='\033[33mloc_net\033[0m',
+                    num_units=12,
+                    W=W,
+                    b=b.flatten,
+                    nonlinearity=None
+                ),
+                incoming=previous_layer,
+                name='\033[33mtransf\033[0m',
+            ) if multi_channel else [Transformer3DLayer(
+                localization_network=DenseLayer(
+                    incoming=previous_layer,
+                    name='\033[33mloc_net_%d\033[0m' % i,
+                    num_units=12,
+                    W=W,
+                    b=b.flatten,
+                    nonlinearity=None
+                ),
+                incoming=layer,
+                name='\033[33mtransf_%d\033[0m' % i,
+            ) for layer, i in zip(previous_layer, channels)]
         elif layer == 'a':
             previous_layer = Pool3DDNNLayer(
                 incoming=previous_layer,
@@ -91,34 +120,6 @@ def get_layers_string(
                 name='\033[31mavg_pool%d_%d\033[0m' % (p_index, i),
                 pool_size=pool_size,
                 mode='average_inc_pad'
-            ) for layer, i in zip(previous_layer, channels)]
-            p_index += 1
-        elif layer == 't':
-            b = np.zeros((3, 4), dtype='float32')
-            b[0, 0] = 1
-            b[1, 1] = 1
-            b[2, 2] = 1
-            W = Constant(0.0)
-            previous_layer = Transformer3DLayer(
-                localization_network=DenseLayer(
-                    incoming=previous_layer,
-                    num_units=12,
-                    W=W,
-                    b=b.flatten,
-                    nonlinearity=None
-                ),
-                incoming=previous_layer,
-                name='\033[33transf\033[0m',
-            ) if multi_channel else [Transformer3DLayer(
-                localization_network=DenseLayer(
-                    incoming=previous_layer,
-                    num_units=12,
-                    W=W,
-                    b=b.flatten,
-                    nonlinearity=None
-                ),
-                incoming=layer,
-                name='\033[33transf_%d\033[0m' % i,
             ) for layer, i in zip(previous_layer, channels)]
             p_index += 1
         elif layer == 'm':

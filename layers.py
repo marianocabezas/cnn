@@ -71,12 +71,9 @@ class Transformer3DLayer(MergeLayer):
                  **kwargs):
         super(Transformer3DLayer, self).__init__(
             [incoming, localization_network], **kwargs)
-        self.downsample_factor = as_tuple(downsample_factor, 2)
+        self.downsample_factor = as_tuple(downsample_factor, 3)
 
         input_shp, loc_shp = self.input_shapes
-
-        if loc_shp[-1] != 12:
-            print loc_shp[-1]
 
         if loc_shp[-1] != 12 or len(loc_shp) != 2:
             raise ValueError("The localization network must have "
@@ -84,7 +81,7 @@ class Transformer3DLayer(MergeLayer):
         if len(input_shp) != 5:
             raise ValueError("The input network must have a 5-dimensional "
                              "output shape: (batch_size, num_input_channels, "
-                             "input_rows, input_columns)")
+                             "input_rows, input_columns, input_depth)")
 
     def get_output_shape_for(self, input_shapes):
         shape = input_shapes[0]
@@ -124,8 +121,8 @@ def _transform_affine(theta, input, downsample_factor):
         out_height, out_width, out_depth)
 
     output = T.reshape(
-        input_transformed, (num_batch, out_height, out_width, num_channels))
-    output = output.dimshuffle(0, 3, 1, 2)  # dimshuffle to conv format
+        input_transformed, (num_batch, out_height, out_width, out_depth, num_channels))
+    output = output.dimshuffle(0, 4, 1, 2, 3)  # dimshuffle to conv format
     return output
 
 
