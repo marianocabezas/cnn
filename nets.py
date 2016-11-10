@@ -235,39 +235,187 @@ def get_layers_string(
     return previous_layer
 
 
+def get_layers_longitudinal(
+        convo_blocks,
+        input_shape,
+        images=[],
+        convo_size=3,
+        pool_size=2,
+        dense_size=256,
+        number_filters=32,
+        padding='valid',
+        drop=0.5,
+        register = False,
+):
+    if not isinstance(convo_size, list):
+        convo_size = [convo_size] * convo_blocks
+    if not isinstance(number_filters, list):
+        number_filters = [number_filters] * convo_blocks
+    input_shape_single = tuple(input_shape[:1] + (1,) + input_shape[2:])
+    channels = input_shape[1]
+    if not images:
+        images = ['im%d' % i for i in range(channels/2)]
+    baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape_single) for i in images]
+    followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape_single) for i in images]
+
+    if register:
+        b = np.zeros((3, 4), dtype='float32')
+        b[0, 0] = 1
+        b[1, 1] = 1
+        b[2, 2] = 1
+        W = Constant(0.0)
+        followup = [Transformer3DLayer(
+            localization_network=DenseLayer(
+                incoming=ConcatLayer(
+                    incomings=[p1, p2]
+                ),
+                name='\033[33mloc_net\033[0m',
+                num_units=12,
+                W=W,
+                b=b.flatten,
+                nonlinearity=None
+            ),
+            incoming=p1,
+            name='\033[33mtransf\033[0m',
+        ) for p1, p2, i in zip(baseline, followup, images)]
+
+    for c, f in zip(convo_size, number_filters):
+        baseline, followup = [get_shared_convolutional_block(
+            p1,
+            p2,
+            c,
+            f,
+            pool_size,
+            drop,
+            padding,
+            sufix=i
+        ) for p1, p2, i in zip(baseline, followup, images)]
+
+    subtraction = [ElemwiseSumLayer(
+        incomings=[p1, p2],
+        name='subtr_%s' % i,
+    ) for p1, p2, i in zip(baseline, followup, images)]
+
+    dense = [DenseLayer(
+        incoming=s,
+        name='\033[32mdense\033[0m',
+        num_units=dense_size,
+        nonlinearity=nonlinearities.softmax
+    ) for s in subtraction]
+
+    union = ConcatLayer(
+        incomings=dense
+    )
+
+    soft = DenseLayer(
+        incoming=union,
+        name='\033[32mclass_out\033[0m',
+        num_units=2,
+        nonlinearity=nonlinearities.softmax
+    )
+
+    return soft
+
+
 def get_convolutional_block(
         incoming,
         convo_size=3,
         num_filters=32,
         pool_size=2,
         drop=0.5,
-        counter=itertools.count()
+        padding='valid',
+        counter=itertools.count(),
+        sufix=''
 ):
     index = counter.next()
     convolution = Conv3DDNNLayer(
         incoming=incoming,
-        name='\033[34mconv%d\033[0m' % index,
+        name='\033[34mconv_%s%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
-        pad='valid'
+        pad=padding
     )
     normalisation = batch_norm_dnn(
         layer=convolution,
-        name='norm%d' % index
+        name='norm_%s%d' % (sufix, index)
     )
     dropout = DropoutLayer(
         incoming=normalisation,
-        name='drop%d' % index,
+        name='drop_%s%d' % (sufix, index),
         p=drop
     )
     pool = Pool3DDNNLayer(
         incoming=dropout,
-        name='\033[31mavg_pool%d\033[0m' % index,
+        name='\033[31mavg_pool_%s%d\033[0m' % (sufix, index),
         pool_size=pool_size,
         mode='average_inc_pad'
     )
 
     return pool
+
+
+def get_shared_convolutional_block(
+            incoming1,
+            incoming2,
+            convo_size=3,
+            num_filters=32,
+            pool_size=2,
+            drop=0.5,
+            padding='valid',
+            counter=itertools.count(),
+            sufix=''
+    ):
+
+    index = counter.next()
+
+    convolution1 = Conv3DDNNLayer(
+        incoming=incoming1,
+        name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
+        num_filters=num_filters,
+        filter_size=convo_size,
+        pad=padding
+    )
+    convolution2 = Conv3DDNNLayer(
+        incoming=incoming2,
+        name='\033[34mconv_%s2_%d\033[0m' % (sufix, index),
+        num_filters=num_filters,
+        filter_size=convo_size,
+        W=convolution1.W,
+        b=convolution1.b,
+        pad=padding
+    )
+    normalisation1 = batch_norm_dnn(
+        layer=convolution1,
+        name='norm_%s1_%d' % (sufix, index)
+    )
+    normalisation2 = batch_norm_dnn(
+        layer=convolution2,
+        name='norm_%s2_%d' % (sufix, index)
+    )
+    dropout1 = DropoutLayer(
+        incoming=normalisation1,
+        name='drop_%s1_%d' % (sufix, index),
+        p=drop
+    )
+    dropout2 = DropoutLayer(
+        incoming=normalisation2,
+        name='drop_%s2_%d' % (sufix, index),
+        p=drop
+    )
+    pool1 = Pool3DDNNLayer(
+        incoming=dropout1,
+        name='\033[31mavg_pool_%s1_%d\033[0m' % (sufix, index),
+        pool_size=pool_size,
+        mode='average_inc_pad'
+    )
+    pool2 = Pool3DDNNLayer(
+        incoming=dropout2,
+        name='\033[31mavg_pool_%s2_%d\033[0m' % (sufix, index),
+        pool_size=pool_size,
+        mode='average_inc_pad'
+    )
+
+    return pool1, pool2
 
 
 def create_classifier_net(
