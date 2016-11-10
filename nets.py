@@ -245,7 +245,7 @@ def get_layers_longitudinal(
         number_filters=32,
         padding='valid',
         drop=0.5,
-        register = False,
+        register=False,
 ):
     if not isinstance(convo_size, list):
         convo_size = [convo_size] * convo_blocks
@@ -480,19 +480,19 @@ def create_segmentation_net(
         max_epochs=epochs
     )
 
+def create_cnn3d_longitudinal(
+            cnn_path,
+            input_shape,
+            convo_size,
+            padding,
+            pool_size,
+            number_filters,
+            patience,
+            multichannel,
+            name,
+            epochs
+    ):
 
-def create_cnn3d_det_string(
-        cnn_path,
-        input_shape,
-        convo_size,
-        padding,
-        pool_size,
-        number_filters,
-        patience,
-        multichannel,
-        name,
-        epochs
-):
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when
     # calling the main python function
@@ -507,6 +507,42 @@ def create_cnn3d_det_string(
         number_filters=number_filters,
         multi_channel=multichannel,
         padding=padding
+    )
+
+    return create_classifier_net(
+        layer_list,
+        patience,
+        name,
+        epochs=epochs
+    )
+
+
+def create_cnn3d_longitudinal(
+        convo_blocks,
+        input_shape,
+        images,
+        convo_size,
+        pool_size,
+        dense_size,
+        number_filters,
+        padding,
+        drop,
+        register,
+        patience,
+        name,
+        epochs
+):
+    layer_list = get_layers_longitudinal(
+        convo_blocks=convo_blocks,
+        input_shape=input_shape,
+        images=images,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        dense_size=dense_size,
+        number_filters=number_filters,
+        padding=padding,
+        drop=drop,
+        register=register
     )
 
     return create_classifier_net(

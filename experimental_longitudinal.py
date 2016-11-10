@@ -4,7 +4,7 @@ import os
 import sys
 from time import strftime
 import numpy as np
-from nets import create_cnn3d_det_string
+from nets import create_cnn3d_longitudinal
 from data_creation import load_patch_batch_percent, load_thresholded_norm_images_by_name
 from data_creation import load_patch_vectors_by_name_pr, load_patch_vectors_by_name
 from nibabel import load as load_nii
@@ -78,10 +78,11 @@ def main():
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
-    parser.add_argument('-c', '--conv-width', dest='conv_width', type=int, default=3)
+    parser.add_argument('-k', '--kernel-size', dest='conv_width', type=int, default=[3, 3])
+    parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
-    parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=32)
+    parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=[32, 64])
     parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
@@ -91,6 +92,7 @@ def main():
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
+    parser.add_argument('--register', action='store_true', dest='register', default=False)
     options = vars(parser.parse_args())
 
     c = color_codes()
@@ -101,8 +103,12 @@ def main():
     patch_size = (patch_width, patch_width, patch_width)
     batch_size = options['batch_size']
     conv_width = options['conv_width']
-    sufix = '.%s.p%d.c%d.n%d.pad_%s' % (layers, patch_width, conv_width, n_filters, padding)
+    conv_blocks = options['conv_blocks']
+    register = options['register']
+    register_s = '.reg' if register else ''
+    sufix = '%s.%s.p%d.c%d.n%d.pad_%s' % (register_s, layers, patch_width, conv_width, n_filters, padding)
     # Create the data
+    images = ['flair', 'pd', 't2']
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
     pd_b_name = os.path.join(prefix_name, options['pd_b'])
@@ -137,18 +143,21 @@ def main():
                   c['g'] + ' (%d/%d)' % (i+1, n_patients))
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-            net_name = os.path.join(path, 'deep-longitudinal.init' + sufix + '.')
-            net = create_cnn3d_det_string(
-                layers,
-                (None, channels, patch_width, patch_width, patch_width),
-                conv_width,
-                padding,
-                2,
-                n_filters,
-                10,
-                True,
-                net_name,
-                200
+            net_name = os.path.join(path, 'deep-exp_longitudinal.init' + sufix + '.')
+            net = create_cnn3d_longitudinal(
+                convo_blocks=conv_blocks,
+                input_shape=(None, channels, patch_width, patch_width, patch_width),
+                images=images,
+                convo_size=conv_width,
+                pool_size=2,
+                dense_size=256,
+                number_filters=n_filters,
+                padding=padding,
+                drop=0.5,
+                register=register,
+                patience=10,
+                name=net_name,
+                epochs=200
             )
             flair_b_test = os.path.join(path, flair_b_name)
             pd_b_test = os.path.join(path, pd_b_name)
@@ -182,7 +191,11 @@ def main():
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
                 # We try to get the last weights to keep improving the net over and over
-                net.fit(x_train, y_train)
+                x_train = np.split(x_train, channels, axis=1)
+                b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[:3])]
+                f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[3:])]
+                inputs = dict(b_inputs + f_inputs)
+                net.fit(inputs, y_train)
 
             try:
                 image_nii = load_nii(outputname1)
@@ -195,7 +208,10 @@ def main():
                 print('              0% of data tested', end='\r')
                 sys.stdout.flush()
                 for batch, centers, percent in load_patch_batch_percent(names_test, batch_size, patch_size):
-                    y_pred = net.predict_proba(batch)
+                    b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
+                    f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
+                    inputs = dict(b_inputs + f_inputs)
+                    y_pred = net.predict_proba(inputs)
                     print('              %f%% of data tested' % percent, end='\r')
                     sys.stdout.flush()
                     [x, y, z] = np.stack(centers, axis=1)
@@ -221,8 +237,11 @@ def main():
                     image = np.zeros_like(image_nii.get_data())
                     print('                   0% of data tested', end='\r')
                     sys.stdout.flush()
-                    for batch, centers, percent in load_patch_batch_percent(patient, 100000, patch_size):
-                        y_pred = net.predict_proba(batch)
+                    for batch, centers, percent in load_patch_batch_percent(patient, batch_size, patch_size):
+                        b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
+                        f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
+                        inputs = dict(b_inputs + f_inputs)
+                        y_pred = net.predict_proba(inputs)
                         print('                   %f%% of data tested' % percent, end='\r')
                         sys.stdout.flush()
                         [x, y, z] = np.stack(centers, axis=1)
@@ -236,18 +255,21 @@ def main():
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
             outputname2 = os.path.join(path, 'test' + str(i) + sufix + '.iter2.nii.gz')
-            net_name = os.path.join(path, 'deep-longitudinal.final' + sufix + '.')
-            net = create_cnn3d_det_string(
-                layers,
-                (None, channels, patch_width, patch_width, patch_width),
-                conv_width,
-                padding,
-                2,
-                n_filters,
-                50,
-                True,
-                net_name,
-                2000
+            net_name = os.path.join(path, 'deep-exp_longitudinal.final' + sufix + '.')
+            net = create_cnn3d_longitudinal(
+                convo_blocks=conv_blocks,
+                input_shape=(None, channels, patch_width, patch_width, patch_width),
+                images=images,
+                convo_size=conv_width,
+                pool_size=2,
+                dense_size=256,
+                number_filters=n_filters,
+                padding=padding,
+                drop=0.5,
+                register=register,
+                patience=50,
+                name=net_name,
+                epochs=2000
             )
 
             try:
@@ -273,7 +295,11 @@ def main():
                 print('              Training labels = (' + ','.join([str(length) for length in y_train.shape]) + ')')
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                       c['g'] + 'Training (' + c['b'] + 'final' + c['nc'] + c['g'] + ')' + c['nc'])
-                net.fit(x_train, y_train)
+                x_train = np.split(x_train, channels, axis=1)
+                b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[:3])]
+                f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[3:])]
+                inputs = dict(b_inputs + f_inputs)
+                net.fit(inputs, y_train)
             try:
                 image_nii = load_nii(outputname2)
                 image2 = image_nii.get_data()
@@ -285,7 +311,10 @@ def main():
                 print('              0% of data tested', end='\r')
                 sys.stdout.flush()
                 for batch, centers, percent in load_patch_batch_percent(names_test, batch_size, patch_size):
-                    y_pred = net.predict_proba(batch)
+                    b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
+                    f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
+                    inputs = dict(b_inputs + f_inputs)
+                    y_pred = net.predict_proba(inputs)
                     print('              %f%% of data tested' % percent, end='\r')
                     sys.stdout.flush()
                     [x, y, z] = np.stack(centers, axis=1)
