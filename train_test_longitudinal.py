@@ -22,8 +22,8 @@ def color_codes():
     return codes
 
 
-def load_and_stack_iter1(names_lou, mask_names, patch_size):
-    rois = load_thresholded_norm_images_by_name(names_lou[0, :], threshold=1.0)
+def load_and_stack_iter1(names_lou, mask_names, wm_names, patch_size):
+    rois = load_thresholded_norm_images_by_name(names_lou[0, :], threshold=1.0, mask_names=wm_names)
     images_loaded = [load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)
                      for names_i in names_lou]
 
@@ -59,8 +59,8 @@ def concatenate_and_permute(x, y, seed):
     return x_train, y_train
 
 
-def load_iter1_data(names_lou, mask_names, patch_size, seed):
-    x_train, y_train = load_and_stack_iter1(names_lou, mask_names, patch_size)
+def load_iter1_data(names_lou, mask_names, wm_names, patch_size, seed):
+    x_train, y_train = load_and_stack_iter1(names_lou, mask_names, wm_names, patch_size)
     x_train, y_train = concatenate_and_permute(x_train, y_train, seed)
 
     return x_train, y_train
@@ -90,6 +90,7 @@ def main():
     parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected.nii.gz')
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
+    parser.add_argument('--wm-mask', action='store', dest='wm_mask', default='union_wm_mask.nii')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     options = vars(parser.parse_args())
 
@@ -111,6 +112,7 @@ def main():
     pd_f_name = os.path.join(prefix_name, options['pd_f'])
     t2_f_name = os.path.join(prefix_name, options['t2_f'])
     mask_name = options['mask']
+    wm_name = options['wm_mask']
     dir_name = options['dir_name']
     patients = [f for f in sorted(os.listdir(dir_name))
                 if os.path.isdir(os.path.join(dir_name, f))]
@@ -166,10 +168,12 @@ def main():
                 names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
                 paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i+1:]])]
                 mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
+                wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
 
                 x_train, y_train = load_iter1_data(
                     names_lou=names_lou,
                     mask_names=mask_names,
+                    wm_names=wm_names,
                     patch_size=patch_size,
                     seed=seed
                 )

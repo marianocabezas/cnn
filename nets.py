@@ -85,13 +85,13 @@ def get_layers_string(
             b[0, 0] = 1
             b[1, 1] = 1
             b[2, 2] = 1
-            W = Constant(0.0)
+            w = Constant(0.0)
             previous_layer = Transformer3DLayer(
                 localization_network=DenseLayer(
                     incoming=previous_layer,
                     name='\033[33mloc_net\033[0m',
                     num_units=12,
-                    W=W,
+                    W=w,
                     b=b.flatten,
                     nonlinearity=None
                 ),
@@ -102,7 +102,7 @@ def get_layers_string(
                     incoming=previous_layer,
                     name='\033[33mloc_net_%d\033[0m' % i,
                     num_units=12,
-                    W=W,
+                    W=w,
                     b=b.flatten,
                     nonlinearity=None
                 ),
@@ -238,7 +238,7 @@ def get_layers_string(
 def get_layers_longitudinal(
         convo_blocks,
         input_shape,
-        images=[],
+        images=None,
         convo_size=3,
         pool_size=2,
         dense_size=256,
@@ -263,7 +263,7 @@ def get_layers_longitudinal(
         b[0, 0] = 1
         b[1, 1] = 1
         b[2, 2] = 1
-        W = Constant(0.0)
+        w = Constant(0.0)
         followup = [Transformer3DLayer(
             localization_network=DenseLayer(
                 incoming=ConcatLayer(
@@ -271,7 +271,7 @@ def get_layers_longitudinal(
                 ),
                 name='\033[33mloc_net\033[0m',
                 num_units=12,
-                W=W,
+                W=w,
                 b=b.flatten,
                 nonlinearity=None
             ),
@@ -280,7 +280,7 @@ def get_layers_longitudinal(
         ) for p1, p2, i in zip(baseline, followup, images)]
 
     for c, f in zip(convo_size, number_filters):
-        baseline, followup = [get_shared_convolutional_block(
+        baseline, followup = zip(*[get_shared_convolutional_block(
             p1,
             p2,
             c,
@@ -289,19 +289,18 @@ def get_layers_longitudinal(
             drop,
             padding,
             sufix=i
-        ) for p1, p2, i in zip(baseline, followup, images)]
+        ) for p1, p2, i in zip(baseline, followup, images)])
 
-    subtraction = [ElemwiseSumLayer(
-        incomings=[p1, p2],
-        name='subtr_%s' % i,
+    union = [ConcatLayer(
+        incomings=[p1, p2]
     ) for p1, p2, i in zip(baseline, followup, images)]
 
     dense = [DenseLayer(
-        incoming=s,
-        name='\033[32mdense\033[0m',
+        incoming=u,
+        name='\033[32mdense_%s\033[0m' % i,
         num_units=dense_size,
         nonlinearity=nonlinearities.softmax
-    ) for s in subtraction]
+    ) for u, i in zip(union, images)]
 
     union = ConcatLayer(
         incomings=dense
@@ -364,7 +363,7 @@ def get_shared_convolutional_block(
             padding='valid',
             counter=itertools.count(),
             sufix=''
-    ):
+):
 
     index = counter.next()
 
@@ -480,7 +479,8 @@ def create_segmentation_net(
         max_epochs=epochs
     )
 
-def create_cnn3d_longitudinal(
+
+def create_cnn3d_det_string(
             cnn_path,
             input_shape,
             convo_size,
@@ -491,7 +491,7 @@ def create_cnn3d_longitudinal(
             multichannel,
             name,
             epochs
-    ):
+):
 
     # We create the final string defining the net with the necessary input and reshape layers
     # We assume that the user will never put these parameters as part of the net definition when

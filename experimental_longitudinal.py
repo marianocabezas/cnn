@@ -73,18 +73,19 @@ def load_iter2_data(names_lou, mask_names, roi_names, patch_size, seed):
     return x_train, y_train
 
 
-def main():
-
+def parse_inputs():
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
-    parser.add_argument('-k', '--kernel-size', dest='conv_width', type=int, default=[3, 3])
+    parser.add_argument('-k', '--kernel-size', dest='conv_width', nargs='+', type=int, default=3)
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
-    parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
-    parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=[32, 64])
+    parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=32)
     parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
+    parser.add_argument('--no-flair', action='store_false', dest='use_flair', default=True)
+    parser.add_argument('--no-pd', action='store_false', dest='use_pd', default=True)
+    parser.add_argument('--no-t2', action='store_false', dest='use_t2', default=True)
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
     parser.add_argument('--t2-baseline', action='store', dest='t2_b', default='t2_moved.nii.gz')
     parser.add_argument('--flair-12m', action='store', dest='flair_f', default='flair_registered.nii.gz')
@@ -93,11 +94,98 @@ def main():
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     parser.add_argument('--register', action='store_true', dest='register', default=False)
-    options = vars(parser.parse_args())
+    return vars(parser.parse_args())
 
+
+def get_names_from_path(path, options, patients=None):
+    # Check if all images should be used
+    use_flair = options['use_flair']
+    use_pd = options['use_pd']
+    use_t2 = options['use_t2']
+
+    # Prepare the names for each image
+    prefix_name = options['prefix']
+    flair_b_name = os.path.join(prefix_name, options['flair_b'])
+    pd_b_name = os.path.join(prefix_name, options['pd_b'])
+    t2_b_name = os.path.join(prefix_name, options['t2_b'])
+    flair_f_name = os.path.join(prefix_name, options['flair_f'])
+    pd_f_name = os.path.join(prefix_name, options['pd_f'])
+    t2_f_name = os.path.join(prefix_name, options['t2_f'])
+
+    # Prepare the names
+    if patients:
+        flair_b_names = [os.path.join(path, patient, flair_b_name) for patient in patients] if use_flair else None
+        pd_b_names = [os.path.join(path, patient, pd_b_name) for patient in patients] if use_pd else None
+        t2_b_names = [os.path.join(path, patient, t2_b_name) for patient in patients] if use_t2 else None
+        flair_f_names = [os.path.join(path, patient, flair_f_name) for patient in patients] if use_flair else None
+        pd_f_names = [os.path.join(path, patient, pd_f_name) for patient in patients] if use_pd else None
+        t2_f_names = [os.path.join(path, patient, t2_f_name) for patient in patients] if use_t2 else None
+        name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
+    else:
+        flair_b_names = os.path.join(path, flair_b_name) if use_flair else None
+        pd_b_names = os.path.join(path, pd_b_name) if use_pd else None
+        t2_b_names = os.path.join(path, t2_b_name) if use_t2 else None
+        flair_f_names = os.path.join(path, flair_f_name) if use_flair else None
+        pd_f_names = os.path.join(path, pd_f_name) if use_pd else None
+        t2_f_names = os.path.join(path, t2_f_name) if use_t2 else None
+        name_list = [flair_b_names, pd_b_names, t2_b_names, flair_f_names, pd_f_names, t2_f_names]
+
+    return np.stack([name for name in name_list if name is not None])
+
+
+def train_net(net, x_train, y_train, images, b_name='\033[30mbaseline_%s\033[0m', f_name='\033[30mfollow_%s\033[0m'):
     c = color_codes()
+    n_channels = x_train.shape[1]
+    n_images = len(images)
+    print('                Training vector shape ='
+          ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
+    print('                Training labels shape ='
+          ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
+          'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
+    # We try to get the last weights to keep improving the net over and over
+    x_train = np.split(x_train, n_channels, axis=1)
+    b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, x_train[:n_images])]
+    f_inputs = [(f_name % im, x_im) for im, x_im in zip(images, x_train[n_images:])]
+    inputs = dict(b_inputs + f_inputs)
+    net.fit(inputs, y_train)
+
+
+def test_net(
+        net,
+        names,
+        batch_size,
+        patch_size,
+        image_size,
+        images,
+        b_name='\033[30mbaseline_%s\033[0m',
+        f_name='\033[30mfollow_%s\033[0m'
+):
+    n_images = len(images)
+    n_channels = n_images * 2
+    test = np.zeros(image_size)
+    print('              0% of data tested', end='\r')
+    sys.stdout.flush()
+    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size):
+        batch = np.split(batch, n_channels, axis=1)
+        b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, batch[:n_images])]
+        f_inputs = [(f_name % im, x_im) for im, x_im in zip(images, batch[n_images:])]
+        inputs = dict(b_inputs + f_inputs)
+        y_pred = net.predict_proba(inputs)
+        print('              %f%% of data tested' % percent, end='\r')
+        sys.stdout.flush()
+        [x, y, z] = np.stack(centers, axis=1)
+        test[x, y, z] = y_pred[:, 1]
+
+    return test
+
+
+def main():
+    options = parse_inputs()
+    c = color_codes()
+
+    # Prepare the net hyperparameters
     padding = options['padding']
-    layers = ''.join(options['layers'])
     n_filters = options['number_filters']
     patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
@@ -106,32 +194,31 @@ def main():
     conv_blocks = options['conv_blocks']
     register = options['register']
     register_s = '.reg' if register else ''
-    sufix = '%s.%s.p%d.c%d.n%d.pad_%s' % (register_s, layers, patch_width, conv_width, n_filters, padding)
-    # Create the data
-    images = ['flair', 'pd', 't2']
-    prefix_name = options['prefix']
-    flair_b_name = os.path.join(prefix_name, options['flair_b'])
-    pd_b_name = os.path.join(prefix_name, options['pd_b'])
-    t2_b_name = os.path.join(prefix_name, options['t2_b'])
-    flair_f_name = os.path.join(prefix_name, options['flair_f'])
-    pd_f_name = os.path.join(prefix_name, options['pd_f'])
-    t2_f_name = os.path.join(prefix_name, options['t2_f'])
+    conv_s = 'c'.join(['%d' % cw for cw in conv_width])
+    filters_s = 'n'.join(['%d' % nf for nf in n_filters])
+
+    # Prepare the sufix that will be added to the results for the net and images
+    use_flair = options['use_flair']
+    use_pd = options['use_pd']
+    use_t2 = options['use_t2']
+    flair_name = 'flair' if use_flair else None
+    pd_name = 'pd' if use_pd else None
+    t2_name = 't2' if use_t2 else None
+    images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
+    sufix = '.%s%s.p%d.c%s.n%s.pad_%s' % ('.'.join(images), register_s, patch_width, conv_s, filters_s, padding)
+
+    # Prepare the data names
     mask_name = options['mask']
     dir_name = options['dir_name']
     patients = [f for f in sorted(os.listdir(dir_name))
                 if os.path.isdir(os.path.join(dir_name, f))]
     n_patients = len(patients)
-    flair_b_names = [os.path.join(dir_name, patient, flair_b_name) for patient in patients]
-    pd_b_names = [os.path.join(dir_name, patient, pd_b_name) for patient in patients]
-    t2_b_names = [os.path.join(dir_name, patient, t2_b_name) for patient in patients]
-    flair_f_names = [os.path.join(dir_name, patient, flair_f_name) for patient in patients]
-    pd_f_names = [os.path.join(dir_name, patient, pd_f_name) for patient in patients]
-    t2_f_names = [os.path.join(dir_name, patient, t2_f_name) for patient in patients]
-    names = np.stack([name for name in [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]])
-    channels = names.shape[0]
+    names = get_names_from_path(dir_name, options, patients)
+
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     metrics_file = os.path.join(dir_name, 'metrics' + sufix)
+
     with open(metrics_file, 'w') as f:
 
         print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
@@ -146,7 +233,7 @@ def main():
             net_name = os.path.join(path, 'deep-exp_longitudinal.init' + sufix + '.')
             net = create_cnn3d_longitudinal(
                 convo_blocks=conv_blocks,
-                input_shape=(None, channels, patch_width, patch_width, patch_width),
+                input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                 images=images,
                 convo_size=conv_width,
                 pool_size=2,
@@ -159,14 +246,9 @@ def main():
                 name=net_name,
                 epochs=200
             )
-            flair_b_test = os.path.join(path, flair_b_name)
-            pd_b_test = os.path.join(path, pd_b_name)
-            t2_b_test = os.path.join(path, t2_b_name)
-            flair_f_test = os.path.join(path, flair_f_name)
-            pd_f_test = os.path.join(path, pd_f_name)
-            t2_f_test = os.path.join(path, t2_f_name)
-            names_test = np.array([flair_f_test, pd_f_test, t2_f_test, flair_b_test, pd_b_test, t2_b_test])
-            outputname1 = os.path.join(path, 'test' + str(i) + sufix + '.iter1.nii.gz')
+
+            names_test = get_names_from_path(path, options)
+            outputname1 = os.path.join(path, 'test_e' + str(i) + sufix + '.iter1.nii.gz')
             try:
                 net.load_params_from(net_name + 'model_weights.pkl')
             except IOError:
@@ -183,19 +265,7 @@ def main():
                     seed=seed
                 )
 
-                print('                Training vector shape ='
-                      ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
-                print('                Training labels shape ='
-                      ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
-
-                print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
-                      'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
-                # We try to get the last weights to keep improving the net over and over
-                x_train = np.split(x_train, channels, axis=1)
-                b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[:3])]
-                f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[3:])]
-                inputs = dict(b_inputs + f_inputs)
-                net.fit(inputs, y_train)
+                train_net(net, x_train, y_train, images)
 
             try:
                 image_nii = load_nii(outputname1)
@@ -203,19 +273,9 @@ def main():
             except IOError:
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Creating the probability map ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-                image_nii = load_nii(os.path.join(path, flair_f_name))
-                image1 = np.zeros_like(image_nii.get_data())
-                print('              0% of data tested', end='\r')
-                sys.stdout.flush()
-                for batch, centers, percent in load_patch_batch_percent(names_test, batch_size, patch_size):
-                    b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
-                    f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
-                    inputs = dict(b_inputs + f_inputs)
-                    y_pred = net.predict_proba(inputs)
-                    print('              %f%% of data tested' % percent, end='\r')
-                    sys.stdout.flush()
-                    [x, y, z] = np.stack(centers, axis=1)
-                    image1[x, y, z] = y_pred[:, 1]
+                image_nii = load_nii(os.path.join(path, mask_name))
+
+                image1 = test_net(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
 
                 image_nii.get_data()[:] = image1
                 image_nii.to_filename(outputname1)
@@ -225,7 +285,7 @@ def main():
                   c['g'] + '<Looking for seeds for the final iteration>' + c['nc'])
             for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
                 patient_path = '/'.join(patient[0].rsplit('/')[:-1])
-                outputname = os.path.join(patient_path, 'test' + str(i) + sufix + '.iter1.nii.gz')
+                outputname = os.path.join(patient_path, 'test_e' + str(i) + sufix + '.iter1.nii.gz')
                 try:
                     load_nii(outputname)
                     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
@@ -234,18 +294,8 @@ def main():
                     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                           c['g'] + '     Testing with patient ' + c['b'] + patient[0].rsplit('/')[-4] + c['nc'])
                     image_nii = load_nii(patient[0])
-                    image = np.zeros_like(image_nii.get_data())
-                    print('                   0% of data tested', end='\r')
-                    sys.stdout.flush()
-                    for batch, centers, percent in load_patch_batch_percent(patient, batch_size, patch_size):
-                        b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
-                        f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
-                        inputs = dict(b_inputs + f_inputs)
-                        y_pred = net.predict_proba(inputs)
-                        print('                   %f%% of data tested' % percent, end='\r')
-                        sys.stdout.flush()
-                        [x, y, z] = np.stack(centers, axis=1)
-                        image[x, y, z] = y_pred[:, 1]
+
+                    image = test_net(net, patient, batch_size, patch_size, image_nii.get_data().shape, images)
 
                     print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
                     image_nii.get_data()[:] = image
@@ -254,11 +304,11 @@ def main():
             ''' Here we perform the last iteration '''
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-            outputname2 = os.path.join(path, 'test' + str(i) + sufix + '.iter2.nii.gz')
+            outputname2 = os.path.join(path, 'test_e' + str(i) + sufix + '.iter2.nii.gz')
             net_name = os.path.join(path, 'deep-exp_longitudinal.final' + sufix + '.')
             net = create_cnn3d_longitudinal(
                 convo_blocks=conv_blocks,
-                input_shape=(None, channels, patch_width, patch_width, patch_width),
+                input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                 images=images,
                 convo_size=conv_width,
                 pool_size=2,
@@ -280,7 +330,7 @@ def main():
                 names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
                 roi_paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
                 paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i + 1:]])]
-                roi_names = [os.path.join(p_path, 'test' + str(i) + sufix + '.iter1.nii.gz') for p_path in roi_paths]
+                roi_names = [os.path.join(p_path, 'test_e' + str(i) + sufix + '.iter1.nii.gz') for p_path in roi_paths]
                 mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
 
                 x_train, y_train = load_iter2_data(
@@ -291,41 +341,23 @@ def main():
                     seed=seed
                 )
 
-                print('              Training vector = (' + ','.join([str(length) for length in x_train.shape]) + ')')
-                print('              Training labels = (' + ','.join([str(length) for length in y_train.shape]) + ')')
-                print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
-                      c['g'] + 'Training (' + c['b'] + 'final' + c['nc'] + c['g'] + ')' + c['nc'])
-                x_train = np.split(x_train, channels, axis=1)
-                b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[:3])]
-                f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, x_train[3:])]
-                inputs = dict(b_inputs + f_inputs)
-                net.fit(inputs, y_train)
+                train_net(net, x_train, y_train, images)
             try:
                 image_nii = load_nii(outputname2)
                 image2 = image_nii.get_data()
             except IOError:
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Creating the probability map ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-                image_nii = load_nii(os.path.join(path, flair_f_name))
-                image2 = np.zeros_like(image_nii.get_data())
-                print('              0% of data tested', end='\r')
-                sys.stdout.flush()
-                for batch, centers, percent in load_patch_batch_percent(names_test, batch_size, patch_size):
-                    b_inputs = [('\033[30mbaseline_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[:3])]
-                    f_inputs = [('\033[30mfollow_%s\033[0m' % i, x_im) for i, x_im in zip(images, batch[3:])]
-                    inputs = dict(b_inputs + f_inputs)
-                    y_pred = net.predict_proba(inputs)
-                    print('              %f%% of data tested' % percent, end='\r')
-                    sys.stdout.flush()
-                    [x, y, z] = np.stack(centers, axis=1)
-                    image2[x, y, z] = y_pred[:, 1]
+                image_nii = load_nii(os.path.join(path, mask_name))
+
+                image2 = test_net(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
 
                 image_nii.get_data()[:] = image2
                 image_nii.to_filename(outputname2)
 
             image = (image1 * image2) > 0.5
             image_nii.get_data()[:] = image
-            outputname_final = os.path.join(path, 'test' + str(i) + sufix + '.final.nii.gz')
+            outputname_final = os.path.join(path, 'test_e' + str(i) + sufix + '.final.nii.gz')
             image_nii.to_filename(outputname_final)
 
             gt = load_nii(os.path.join(path, mask_name)).get_data().astype(dtype=np.bool)

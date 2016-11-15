@@ -121,8 +121,8 @@ def load_masks(mask_names):
         yield load_nii(image_name).get_data().astype(dtype=np.bool)
 
 
-def threshold_image_list(images, threshold):
-    return [image > threshold for image in images]
+def threshold_image_list(images, threshold, masks=None):
+    return [im * m > threshold for im, m in zip(images, masks)] if masks else [im > threshold for im in images]
 
 
 def load_thresholded_images_by_name(image_names, threshold=2.0):
@@ -136,8 +136,9 @@ def load_thresholded_norm_images(name, dir_name, threshold=2.0):
     return threshold_image_list(norm_image_generator(image_names), threshold)
 
 
-def load_thresholded_norm_images_by_name(image_names, threshold=2.0):
-    return threshold_image_list(norm_image_generator(image_names), threshold)
+def load_thresholded_norm_images_by_name(image_names, mask_names=None, threshold=2.0):
+    masks = [load_nii(mask).get_data for mask in mask_names] if mask_names else None
+    return threshold_image_list(norm_image_generator(image_names), threshold, masks)
 
 
 def load_image_vectors(name, dir_name, min_shape, datatype=np.float32):
