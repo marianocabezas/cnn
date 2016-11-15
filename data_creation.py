@@ -137,7 +137,7 @@ def load_thresholded_norm_images(name, dir_name, threshold=2.0):
 
 
 def load_thresholded_norm_images_by_name(image_names, mask_names=None, threshold=2.0):
-    masks = [load_nii(mask).get_data for mask in mask_names] if mask_names else None
+    masks = [load_nii(mask).get_data() for mask in mask_names] if mask_names else None
     return threshold_image_list(norm_image_generator(image_names), threshold, masks)
 
 
@@ -519,3 +519,54 @@ def load_unet_data(
     )
 
     return train_test_split(x, y, test_size=test_size, random_state=random_state)
+
+
+def load_and_stack_iter1(names_lou, mask_names, roi_names, patch_size):
+    rois = load_thresholded_norm_images_by_name(names_lou[0, :], threshold=1.0, mask_names=roi_names)
+    images_loaded = [load_patch_vectors_by_name(names_i, mask_names, patch_size, rois=rois)
+                     for names_i in names_lou]
+
+    x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
+    y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
+
+    return x_train, y_train
+
+
+def load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size):
+    pr_maps = [load_nii(roi_name).get_data() for roi_name in roi_names]
+    images_loaded = [load_patch_vectors_by_name_pr(names_i, mask_names, patch_size, pr_maps=pr_maps)
+                     for names_i in names_lou]
+
+    x_train = [np.stack(images, axis=1) for images in zip(*images_loaded) if images]
+    y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
+
+    return x_train, y_train
+
+
+def concatenate_and_permute(x, y, seed):
+    print('                Creating data vector')
+    x_train = np.concatenate(x)
+    y_train = np.concatenate(y)
+
+    print('                Permuting the data')
+    np.random.seed(seed)
+    x_train = np.random.permutation(x_train.astype(dtype=np.float32))
+    print('                Permuting the labels')
+    np.random.seed(seed)
+    y_train = np.random.permutation(y_train.astype(dtype=np.int32))
+
+    return x_train, y_train
+
+
+def load_iter1_data(names_lou, mask_names, roi_names, patch_size, seed):
+    x_train, y_train = load_and_stack_iter1(names_lou, mask_names, roi_names, patch_size)
+    x_train, y_train = concatenate_and_permute(x_train, y_train, seed)
+
+    return x_train, y_train
+
+
+def load_iter2_data(names_lou, mask_names, roi_names, patch_size, seed):
+    x_train, y_train = load_and_stack_iter2(names_lou, mask_names, roi_names, patch_size)
+    x_train, y_train = concatenate_and_permute(x_train, y_train, seed)
+
+    return x_train, y_train
