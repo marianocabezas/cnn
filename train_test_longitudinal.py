@@ -29,6 +29,7 @@ def main():
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
     parser.add_argument('-c', '--conv-width', dest='conv_width', type=int, default=3)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
+    parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('-n', '--number-filters', action='store', dest='number_filters', type=int, default=32)
     parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
@@ -50,8 +51,9 @@ def main():
     patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
     batch_size = options['batch_size']
+    dense_size = options['dense_size']
     conv_width = options['conv_width']
-    sufix = '.%s.p%d.c%d.n%d.pad_%s' % (layers, patch_width, conv_width, n_filters, padding)
+    sufix = '.%s.p%d.c%d.n%d.d%d.pad_%s' % (layers, patch_width, conv_width, n_filters, dense_size, padding)
     # Create the data
     prefix_name = options['prefix']
     flair_b_name = os.path.join(prefix_name, options['flair_b'])
@@ -95,6 +97,7 @@ def main():
                 conv_width,
                 padding,
                 2,
+                dense_size,
                 n_filters,
                 10,
                 True,
@@ -196,6 +199,7 @@ def main():
                 conv_width,
                 padding,
                 2,
+                dense_size,
                 n_filters,
                 50,
                 True,

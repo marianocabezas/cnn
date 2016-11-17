@@ -29,6 +29,7 @@ def parse_inputs():
     parser.add_argument('-k', '--kernel-size', dest='conv_width', nargs='+', type=int, default=3)
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
+    parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=32)
     parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
@@ -140,6 +141,7 @@ def main():
     patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
     batch_size = options['batch_size']
+    dense_size = options['dense_size']
     conv_width = options['conv_width']
     conv_blocks = options['conv_blocks']
     register = options['register']
@@ -188,7 +190,7 @@ def main():
                 images=images,
                 convo_size=conv_width,
                 pool_size=2,
-                dense_size=256,
+                dense_size=dense_size,
                 number_filters=n_filters,
                 padding=padding,
                 drop=0.5,
@@ -265,7 +267,7 @@ def main():
                 images=images,
                 convo_size=conv_width,
                 pool_size=2,
-                dense_size=256,
+                dense_size=dense_size,
                 number_filters=n_filters,
                 padding=padding,
                 drop=0.5,

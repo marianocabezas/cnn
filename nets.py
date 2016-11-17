@@ -486,6 +486,7 @@ def create_cnn3d_det_string(
             convo_size,
             padding,
             pool_size,
+            dense_size,
             number_filters,
             patience,
             multichannel,
@@ -504,6 +505,7 @@ def create_cnn3d_det_string(
         input_shape=input_shape,
         convo_size=convo_size,
         pool_size=pool_size,
+        dense_size=dense_size,
         number_filters=number_filters,
         multi_channel=multichannel,
         padding=padding
