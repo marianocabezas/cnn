@@ -1,0 +1,23 @@
+cycler==0.10.0
+decorator==4.0.9
+gdbn==0.1
+gnumpy==0.2
+joblib==0.9.4
+Lasagne==0.2.dev1
+matplotlib==1.5.1
+networkx==1.11
+nibabel==2.1.0
+-e git+https://github.com/dnouri/nolearn.git@c9b7d1e5a91a1e48608a5678149c8b505bb8f9e4#egg=nolearn
+nolearn-utils==0.1.dev0
+numpy==1.11.2
+Pillow==3.1.1
+pkg-resources==0.0.0
+pyparsing==2.1.0
+python-dateutil==2.5.1
+pytz==2016.2
+scikit-image==0.11.3
+scikit-learn==0.17.1
+scipy==0.18.1
+six==1.10.0
+tabulate==0.7.5
+Theano==0.9.0.dev4
