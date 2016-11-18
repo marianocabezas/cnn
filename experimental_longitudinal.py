@@ -26,6 +26,7 @@ def parse_inputs():
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-p', '--patch-width', dest='patch_width', type=int, default=9)
+    parser.add_argument('-l', '--pool-size', dest='pool_size', type=int, default=2)
     parser.add_argument('-k', '--kernel-size', dest='conv_width', nargs='+', type=int, default=3)
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
@@ -79,7 +80,7 @@ def get_names_from_path(path, options, patients=None):
         flair_f_names = os.path.join(path, flair_f_name) if use_flair else None
         pd_f_names = os.path.join(path, pd_f_name) if use_pd else None
         t2_f_names = os.path.join(path, t2_f_name) if use_t2 else None
-        name_list = [flair_b_names, pd_b_names, t2_b_names, flair_f_names, pd_f_names, t2_f_names]
+        name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
 
     return np.stack([name for name in name_list if name is not None])
 
@@ -140,6 +141,7 @@ def main():
     n_filters = options['number_filters']
     patch_width = options['patch_width']
     patch_size = (patch_width, patch_width, patch_width)
+    pool_size = options['pool_size']
     batch_size = options['batch_size']
     dense_size = options['dense_size']
     conv_width = options['conv_width']
@@ -157,7 +159,8 @@ def main():
     pd_name = 'pd' if use_pd else None
     t2_name = 't2' if use_t2 else None
     images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
-    sufix = '.%s%s.p%d.c%s.n%s.pad_%s' % ('.'.join(images), register_s, patch_width, conv_s, filters_s, padding)
+    images_s = '.'.join(images)
+    sufix = '.%s%s.p%d.c%s.n%s.d%d.pad_%s' % (images_s, register_s, patch_width, conv_s, filters_s, dense_size, padding)
 
     # Prepare the data names
     mask_name = options['mask']
@@ -189,7 +192,7 @@ def main():
                 input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                 images=images,
                 convo_size=conv_width,
-                pool_size=2,
+                pool_size=pool_size,
                 dense_size=dense_size,
                 number_filters=n_filters,
                 padding=padding,
@@ -266,7 +269,7 @@ def main():
                 input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                 images=images,
                 convo_size=conv_width,
-                pool_size=2,
+                pool_size=pool_size,
                 dense_size=dense_size,
                 number_filters=n_filters,
                 padding=padding,

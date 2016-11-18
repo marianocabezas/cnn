@@ -7,7 +7,7 @@ from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
-from layers import Unpooling3D, Transformer3DLayer
+from layers import Unpooling3D, Transformer3DLayer, WeightedSumLayer
 from lasagne import updates
 from lasagne import nonlinearities
 from lasagne.init import Constant
@@ -160,6 +160,7 @@ def get_layers_string(
                     name='\033[36mdeconv%d\033[0m' % c_index,
                     num_filters=number_filters,
                     filter_size=c_size,
+                    W=convolutions['conv%d' % (c_index - 1)].W.T,
                     pad='full'
                 ),
                 name='denorm%d' % c_index
@@ -169,10 +170,11 @@ def get_layers_string(
                     name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
                     filter_size=c_size,
+                    W=convolutional['conv%d' % (c_index - 1)].W.T,
                     pad='full'
                 ),
                 name='denorm%d_%d' % (c_index, i)
-            ) for layer, i in zip(previous_layer, channels)]
+            ) for convolutional, layer, i in zip(convolutions['conv%d' % (c_index - 1)], previous_layer, channels)]
         elif layer == 'o':
             previous_layer = DropoutLayer(
                 incoming=previous_layer,
@@ -291,7 +293,8 @@ def get_layers_longitudinal(
             sufix=i
         ) for p1, p2, i in zip(baseline, followup, images)])
 
-    union = [ConcatLayer(
+    subtraction = [WeightedSumLayer(
+        name='subtraction_%s' % i,
         incomings=[p1, p2]
     ) for p1, p2, i in zip(baseline, followup, images)]
 
@@ -300,10 +303,11 @@ def get_layers_longitudinal(
         name='\033[32mdense_%s\033[0m' % i,
         num_units=dense_size,
         nonlinearity=nonlinearities.softmax
-    ) for u, i in zip(union, images)]
+    ) for u, i in zip(subtraction, images)]
 
     union = ConcatLayer(
-        incomings=dense
+        incomings=dense,
+        name='union'
     )
 
     soft = DenseLayer(
@@ -448,7 +452,7 @@ def create_classifier_net(
 
         on_epoch_finished=get_epoch_finished(name, patience),
 
-        batch_iterator_train=BatchIterator(batch_size=1024),
+        batch_iterator_train=BatchIterator(batch_size=512),
 
         verbose=11,
         max_epochs=epochs

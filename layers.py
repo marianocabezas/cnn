@@ -1,6 +1,7 @@
 import theano
 import theano.tensor as T
 
+from lasagne.init import Constant
 from lasagne.layers import Layer, MergeLayer
 from lasagne.utils import as_tuple
 
@@ -17,6 +18,23 @@ class Unpooling3D(Layer):
 
     def get_output_shape_for(self, input_shape):
         return input_shape[:2] + tuple(a * self.pool_size for a in input_shape[2:])
+
+
+class WeightedSumLayer(MergeLayer):
+    def __init__(self, incomings, **kwargs):
+        super(WeightedSumLayer, self).__init__(incomings, **kwargs)
+        self.coeff_left = self.add_param(Constant(-1), (1,), name='coeff_left')
+        self.coeff_right = self.add_param(Constant(1), (1,), name='coeff_right')
+
+    def get_params(self, unwrap_shared=True, **tags):
+        return [self.coeff_left, self.coeff_right]
+
+    def get_output_shape_for(self, input_shapes):
+        return input_shapes[0]
+
+    def get_output_for(self, inputs, **kwargs):
+        left, right = inputs
+        return left * self.coeff_left + right * self.coeff_right
 
 
 class Transformer3DLayer(MergeLayer):
@@ -91,12 +109,12 @@ class Transformer3DLayer(MergeLayer):
 
     def get_output_for(self, inputs, **kwargs):
         # see eq. (1) and sec 3.1 in [1]
-        input, theta = inputs
-        return _transform_affine(theta, input, self.downsample_factor)
+        input_l, theta = inputs
+        return _transform_affine(theta, input_l, self.downsample_factor)
 
 
-def _transform_affine(theta, input, downsample_factor):
-    num_batch, num_channels, height, width, depth = input.shape
+def _transform_affine(theta, input_l, downsample_factor):
+    num_batch, num_channels, height, width, depth = input_l.shape
     theta = T.reshape(theta, (-1, 3, 4))
 
     # grid of (x_t, y_t, z_t, 1), eq (1) in ref [1]
