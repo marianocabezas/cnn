@@ -237,6 +237,32 @@ def get_layers_string(
     return previous_layer
 
 
+def get_layers_registration(input_shape):
+    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=input_shape)
+    followup = InputLayer(name='\033[30mfollow\033[0m', shape=input_shape)
+
+    b = np.zeros((3, 4), dtype='float32')
+    b[0, 0] = 1
+    b[1, 1] = 1
+    b[2, 2] = 1
+    w = Constant(0.0)
+    register = Transformer3DLayer(
+        localization_network=DenseLayer(
+            incoming=ConcatLayer(
+                incomings=[baseline, followup]
+            ),
+            name='\033[33mloc_net\033[0m',
+            num_units=12,
+            W=w,
+            b=b.flatten,
+            nonlinearity=None
+        ),
+        incoming=baseline,
+        name='\033[33mtransf\033[0m'
+    )
+    return register
+
+
 def get_layers_longitudinal(
         convo_blocks,
         input_shape,
@@ -552,6 +578,22 @@ def create_cnn3d_longitudinal(
     )
 
     return create_classifier_net(
+        layer_list,
+        patience,
+        name,
+        epochs=epochs
+    )
+
+
+def create_cnn3d_register(
+            input_shape,
+            patience,
+            name,
+            epochs
+):
+    layer_list = get_layers_registration(input_shape=input_shape)
+
+    return create_segmentation_net(
         layer_list,
         patience,
         name,

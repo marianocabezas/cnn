@@ -9,17 +9,7 @@ from data_creation import load_patch_batch_percent
 from data_creation import load_iter1_data, load_iter2_data
 from nibabel import load as load_nii
 from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
-
-
-def color_codes():
-    codes = {'g': '\033[32m',
-             'c': '\033[36m',
-             'bg': '\033[32;1m',
-             'b': '\033[1m',
-             'nc': '\033[0m',
-             'gc': '\033[32m, \033[0m'
-             }
-    return codes
+from utils import color_codes
 
 
 def main():
