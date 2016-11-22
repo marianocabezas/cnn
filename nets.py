@@ -244,7 +244,8 @@ def get_layers_registration(
         pool_size=2,
         number_filters=32
 ):
-    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    baseline_input = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    baseline = baseline_input
     followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
     for i in range(convo_blocks):
@@ -273,7 +274,7 @@ def get_layers_registration(
             b=b.flatten,
             nonlinearity=None
         ),
-        incoming=baseline,
+        incoming=baseline_input,
         name='\033[33mtransf\033[0m'
     )
     output = DenseLayer(
