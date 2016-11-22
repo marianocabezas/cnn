@@ -239,20 +239,22 @@ def get_layers_string(
 
 def get_layers_registration(
         input_shape,
+        convo_blocks=2,
         convo_size=3,
         pool_size=2,
         number_filters=32
 ):
-    baseline_in = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
-    followup_in = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
+    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
-    baseline, followup = get_shared_convolutional_block(
-        baseline_in,
-        followup_in,
-        convo_size=convo_size,
-        num_filters=number_filters,
-        pool_size=pool_size,
-    )
+    for i in range(convo_blocks):
+        baseline, followup = get_shared_convolutional_block(
+            baseline,
+            followup,
+            convo_size=convo_size,
+            num_filters=number_filters,
+            pool_size=pool_size,
+        )
 
     b = np.zeros((3, 4), dtype='float32')
     b[0, 0] = 1
@@ -608,6 +610,7 @@ def create_cnn3d_longitudinal(
 def create_cnn3d_register(
             input_shape,
             convo_size,
+            convo_blocks,
             pool_size,
             number_filters,
             patience,
@@ -617,6 +620,7 @@ def create_cnn3d_register(
     layer_list = get_layers_registration(
         input_shape=input_shape,
         convo_size=convo_size,
+        convo_blocks=convo_blocks,
         pool_size=pool_size,
         number_filters=number_filters
     )

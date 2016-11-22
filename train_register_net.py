@@ -17,6 +17,7 @@ def parse_inputs():
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-l', '--pool-size', dest='pool_size', type=int, default=2)
     parser.add_argument('-k', '--kernel-size', dest='conv_width', type=int, default=3)
+    parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', type=int, default=32)
     parser.add_argument('-i', '--input', action='store', dest='input_size', nargs='+', type=int, default=[32, 32, 32])
     parser.add_argument('--baseline-folder', action='store', dest='b_folder', default='time1/preprocessed')
@@ -71,6 +72,7 @@ def main():
     n_filters = options['number_filters']
     pool_size = options['pool_size']
     conv_width = options['conv_width']
+    conv_blocks = options['conv_blocks']
 
     seed = np.random.randint(np.iinfo(np.int32).max)
 
@@ -80,6 +82,7 @@ def main():
     net = create_cnn3d_register(
         input_shape=input_size,
         convo_size=conv_width,
+        convo_blocks=conv_blocks,
         pool_size=pool_size,
         number_filters=n_filters,
         patience=100,
