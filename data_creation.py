@@ -570,3 +570,21 @@ def load_iter2_data(names_lou, mask_names, roi_names, patch_size, seed):
     x_train, y_train = concatenate_and_permute(x_train, y_train, seed)
 
     return x_train, y_train
+
+
+def load_register_data(names, image_size, seed):
+    print('                Creating data vector')
+    images = [norm_image_generator(n) for n in names]
+    images_loaded = [
+        np.stack([nd.interpolation.zoom(im, [A/(1.0*B) for A, B in zip(image_size, im.shape)]) for im in gen])
+        for gen in images]
+    x_train = np.stack(images_loaded)
+    y_train = x_train[:, 1, :, :, :].reshape(len(names), -1)
+    print('                Permuting the data')
+    np.random.seed(seed)
+    x_train = np.random.permutation(x_train.astype(dtype=np.float32))
+    print('                Permuting the labels')
+    np.random.seed(seed)
+    y_train = np.random.permutation(y_train.astype(dtype=np.float32))
+
+    return x_train, y_train

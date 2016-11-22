@@ -133,7 +133,7 @@ def _transform_affine(theta, input_l, downsample_factor):
     z_s_flat = z_s.flatten()
 
     # dimshuffle input to  (bs, height, width, depth, channels)
-    input_dim = input.dimshuffle(0, 2, 3, 4, 1)
+    input_dim = input_l.dimshuffle(0, 2, 3, 4, 1)
     input_transformed = _interpolate(
         input_dim, x_s_flat, y_s_flat, z_s_flat,
         out_height, out_width, out_depth)

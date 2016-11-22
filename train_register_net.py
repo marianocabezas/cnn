@@ -1,15 +1,15 @@
 from __future__ import print_function
 import argparse
 import os
-import sys
+# import sys
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
 from utils import color_codes
-from data_creation import load_patch_batch_percent
-from data_creation import load_iter1_data, load_iter2_data
-from nibabel import load as load_nii
-from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
+# from data_creation import load_patch_batch_percent
+from data_creation import load_register_data
+# from nibabel import load as load_nii
+# from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
 
 
 def parse_inputs():
@@ -20,42 +20,80 @@ def parse_inputs():
     parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=32)
     parser.add_argument('-i', '--input', action='store', dest='input_size', nargs='+', type=int, default=[32, 32, 32])
-    parser.add_argument('--baseline-folder', action='store', dest='b_folder', default='time1/')
-    parser.add_argument('--followup-folder', action='store', dest='f_folder', default='time2/')
+    parser.add_argument('--baseline-folder', action='store', dest='b_folder', default='time1/preprocessed')
+    parser.add_argument('--followup-folder', action='store', dest='f_folder', default='time2/preprocessed')
+    parser.add_argument('--image-name', action='store', dest='im_name', default='t1_corrected.nii.gz')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     return vars(parser.parse_args())
+
+
+def get_names_from_path(path, baseline, followup, image):
+    # Check if all images should be used
+    patients = [f for f in sorted(os.listdir(path))
+                if os.path.isdir(os.path.join(path, f))]
+
+    # Prepare the names for each image
+    name_list = np.stack([[
+                     os.path.join(path, p, baseline, image),
+                     os.path.join(path, p, followup, image)
+                 ] for p in patients])
+
+    return name_list
+
+
+def train_net(net, x_train, y_train, b_name='\033[30mbaseline\033[0m', f_name='\033[30mfollow\033[0m'):
+    c = color_codes()
+    print('                Training vector shape ='
+          ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
+    print('                Training labels shape ='
+          ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
+          'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
+    # We try to get the last weights to keep improving the net over and over
+    x_train = np.split(x_train, 2, axis=1)
+    b_inputs = (b_name, x_train[0])
+    f_inputs = (f_name, x_train[1])
+    inputs = dict([b_inputs, f_inputs])
+    net.fit(inputs, y_train)
 
 
 def main():
     c = color_codes()
     options = parse_inputs()
 
-    dir_name = options['dir_name']
-    patients = [f for f in sorted(os.listdir(dir_name))
-                if os.path.isdir(os.path.join(dir_name, f))]
-    n_patients = len(patients)
-    names = get_names_from_path(dir_name, options, patients)
+    print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting the registration training' + c['nc'])
 
+    dir_name = options['dir_name']
+    baseline_name = options['b_folder']
+    followup_name = options['f_folder']
+    image_name = options['im_name']
     input_size = options['input_size']
 
     seed = np.random.randint(np.iinfo(np.int32).max)
 
-    metrics_file = os.path.join(dir_name, 'metrics' + sufix)
+    net_name = os.path.join(dir_name, 'deep-exp_registration.')
+    net = create_cnn3d_register(
+        input_shape=input_size,
+        patience=100,
+        name=net_name,
+        epochs=2000
+    )
 
-    with open(metrics_file, 'w') as f:
-        print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
+    try:
+        net.load_params_from(net_name + 'model_weights.pkl')
+    except IOError:
+        print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
+              c['g'] + 'Loading the data for ' + c['b'] + 'iteration 1' + c['nc'])
 
-        for i in range(0, n_patients):
-            case = patients[i]
-            path = os.path.join(dir_name, case)
-            print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'] +
-                  c['g'] + ' (%d/%d)' % (i + 1, n_patients))
-            print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
-                  '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-            net_name = os.path.join(path, 'deep-exp_longitudinal.init' + sufix + '.')
-            net = create_cnn3d_register(
-                input_shape=(None, names.shape[0], input_size),
-                patience=10,
-                name=net_name,
-                epochs=200
-            )
+        names = get_names_from_path(dir_name, baseline_name, followup_name, image_name)
+
+        x_train, y_train = load_register_data(
+            names=names,
+            image_size=input_size,
+            seed=seed
+        )
+        train_net(net, x_train, y_train)
+
+
+if __name__ == '__main__':
+    main()

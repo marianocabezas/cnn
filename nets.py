@@ -238,8 +238,8 @@ def get_layers_string(
 
 
 def get_layers_registration(input_shape):
-    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=input_shape)
-    followup = InputLayer(name='\033[30mfollow\033[0m', shape=input_shape)
+    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
     b = np.zeros((3, 4), dtype='float32')
     b[0, 0] = 1
@@ -249,7 +249,8 @@ def get_layers_registration(input_shape):
     register = Transformer3DLayer(
         localization_network=DenseLayer(
             incoming=ConcatLayer(
-                incomings=[baseline, followup]
+                incomings=[baseline, followup],
+                name='union'
             ),
             name='\033[33mloc_net\033[0m',
             num_units=12,
@@ -260,7 +261,13 @@ def get_layers_registration(input_shape):
         incoming=baseline,
         name='\033[33mtransf\033[0m'
     )
-    return register
+    output = DenseLayer(
+        incoming=register,
+        name='\033[32m3d_out\033[0m',
+        num_units=reduce(mul, input_shape, 1),
+        nonlinearity=nonlinearities.softmax
+    )
+    return output
 
 
 def get_layers_longitudinal(
