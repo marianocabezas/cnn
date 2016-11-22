@@ -77,7 +77,7 @@ def main():
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     input_size_s = 'x'.join([str(length) for length in input_size])
-    sufix = '.s%s.c%s.n%s' % (input_size_s, conv_width, n_filters)
+    sufix = 's%s.c%s.n%s' % (input_size_s, conv_width, n_filters)
     net_name = os.path.join(dir_name, 'deep-exp_registration.' + sufix + '.')
     net = create_cnn3d_register(
         input_shape=input_size,
