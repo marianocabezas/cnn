@@ -237,9 +237,23 @@ def get_layers_string(
     return previous_layer
 
 
-def get_layers_registration(input_shape):
+def get_layers_registration(
+        input_shape,
+        convo_size=3,
+        pool_size=2,
+        number_filters=32
+):
     baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
     followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
+
+    input_layer = ConcatLayer(
+        incomings=[baseline, followup],
+        name='union'
+    )
+
+    convo1 = get_convolutional_block(input_layer, convo_size, number_filters, pool_size)
+
+    convo2 = get_convolutional_block(convo1, convo_size, number_filters, pool_size)
 
     b = np.zeros((3, 4), dtype='float32')
     b[0, 0] = 1
@@ -248,10 +262,7 @@ def get_layers_registration(input_shape):
     w = Constant(0.0)
     register = Transformer3DLayer(
         localization_network=DenseLayer(
-            incoming=ConcatLayer(
-                incomings=[baseline, followup],
-                name='union'
-            ),
+            incoming=convo2,
             name='\033[33mloc_net\033[0m',
             num_units=12,
             W=w,
@@ -594,11 +605,19 @@ def create_cnn3d_longitudinal(
 
 def create_cnn3d_register(
             input_shape,
+            convo_size,
+            pool_size,
+            number_filters,
             patience,
             name,
             epochs
 ):
-    layer_list = get_layers_registration(input_shape=input_shape)
+    layer_list = get_layers_registration(
+        input_shape=input_shape,
+        convo_size=convo_size,
+        pool_size=pool_size,
+        number_filters=number_filters
+    )
 
     return create_segmentation_net(
         layer_list,

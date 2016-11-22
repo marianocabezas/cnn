@@ -17,7 +17,6 @@ def parse_inputs():
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-l', '--pool-size', dest='pool_size', type=int, default=2)
     parser.add_argument('-k', '--kernel-size', dest='conv_width', nargs='+', type=int, default=3)
-    parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=32)
     parser.add_argument('-i', '--input', action='store', dest='input_size', nargs='+', type=int, default=[32, 32, 32])
     parser.add_argument('--baseline-folder', action='store', dest='b_folder', default='time1/preprocessed')
@@ -36,7 +35,7 @@ def get_names_from_path(path, baseline, followup, image):
     name_list = np.stack([[
                      os.path.join(path, p, baseline, image),
                      os.path.join(path, p, followup, image)
-                 ] for p in patients])
+                 ] for p in patients[:30]])
 
     return name_list
 
@@ -69,29 +68,37 @@ def main():
     image_name = options['im_name']
     input_size = options['input_size']
 
+    n_filters = options['number_filters']
+    pool_size = options['pool_size']
+    conv_width = options['conv_width']
+
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     net_name = os.path.join(dir_name, 'deep-exp_registration.')
     net = create_cnn3d_register(
         input_shape=input_size,
+        convo_size=conv_width,
+        pool_size=pool_size,
+        number_filters=n_filters,
         patience=100,
         name=net_name,
         epochs=2000
     )
 
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
+          c['g'] + 'Loading the data for ' + c['b'] + 'iteration 1' + c['nc'])
+
+    names = get_names_from_path(dir_name, baseline_name, followup_name, image_name)
+
+    x_train, y_train = load_register_data(
+        names=names,
+        image_size=input_size,
+        seed=seed
+    )
+
     try:
         net.load_params_from(net_name + 'model_weights.pkl')
-    except IOError:
-        print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
-              c['g'] + 'Loading the data for ' + c['b'] + 'iteration 1' + c['nc'])
-
-        names = get_names_from_path(dir_name, baseline_name, followup_name, image_name)
-
-        x_train, y_train = load_register_data(
-            names=names,
-            image_size=input_size,
-            seed=seed
-        )
+    finally:
         train_net(net, x_train, y_train)
 
 
