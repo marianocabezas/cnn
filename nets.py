@@ -243,17 +243,16 @@ def get_layers_registration(
         pool_size=2,
         number_filters=32
 ):
-    baseline = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
-    followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
+    baseline_in = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    followup_in = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
-    input_layer = ConcatLayer(
-        incomings=[baseline, followup],
-        name='union'
+    baseline, followup = get_shared_convolutional_block(
+        baseline_in,
+        followup_in,
+        convo_size=convo_size,
+        num_filters=number_filters,
+        pool_size=pool_size,
     )
-
-    convo1 = get_convolutional_block(input_layer, convo_size, number_filters, pool_size)
-
-    convo2 = get_convolutional_block(convo1, convo_size, number_filters, pool_size)
 
     b = np.zeros((3, 4), dtype='float32')
     b[0, 0] = 1
@@ -262,7 +261,10 @@ def get_layers_registration(
     w = Constant(0.0)
     register = Transformer3DLayer(
         localization_network=DenseLayer(
-            incoming=convo2,
+            incoming=ConcatLayer(
+                incomings=[baseline, followup],
+                name='union'
+            ),
             name='\033[33mloc_net\033[0m',
             num_units=12,
             W=w,
