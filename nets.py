@@ -281,7 +281,7 @@ def get_layers_registration(
         incoming=register,
         name='\033[32m3d_out\033[0m',
         num_units=reduce(mul, input_shape, 1),
-        nonlinearity=nonlinearities.softmax
+        nonlinearity=None
     )
     return output
 

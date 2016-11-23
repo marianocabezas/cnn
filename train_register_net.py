@@ -103,8 +103,10 @@ def main():
 
     try:
         net.load_params_from(net_name + 'model_weights.pkl')
-    finally:
-        train_net(net, x_train, y_train)
+    except IOError:
+        pass
+
+    train_net(net, x_train, y_train)
 
 
 if __name__ == '__main__':
