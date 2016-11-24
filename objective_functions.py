@@ -8,6 +8,14 @@ def probabilistic_dsc_objective(predictions, targets):
     return -(top / bottom)
 
 
+def cross_correlation(x, y):
+    x_mean = tensor.mean(x)
+    y_mean = tensor.mean(y)
+    y_dev = y-y_mean
+    x_dev = x-x_mean
+    return -(tensor.sum(x_dev*y_dev) / tensor.sqrt(tensor.sum(x_dev*x_dev)*tensor.sum(y_dev*y_dev)))
+
+
 def logarithmic_dsc_objective(predictions, targets):
     top = tensor.log(2) + tensor.log(tensor.sum(predictions[:, 1] * targets))
     bottom = tensor.log(tensor.sum(predictions[:, 1]) + tensor.sum(targets))

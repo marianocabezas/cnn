@@ -277,11 +277,10 @@ def get_layers_registration(
         incoming=baseline_input,
         name='\033[33mtransf\033[0m'
     )
-    output = DenseLayer(
+    output = ReshapeLayer(
         incoming=register,
         name='\033[32m3d_out\033[0m',
-        num_units=reduce(mul, input_shape, 1),
-        nonlinearity=None
+        shape=([0], -1)
     )
     return output
 
@@ -528,9 +527,38 @@ def create_segmentation_net(
 
         custom_scores=custom_scores,
 
+        objective_loss_function=objectives.categorical_crossentropy,
+
         verbose=11,
         max_epochs=epochs
     )
+
+
+def create_registration_net(
+            layers,
+            patience,
+            name,
+            custom_scores=None,
+            epochs=200
+    ):
+        return NeuralNet(
+
+            layers=layers,
+
+            regression=True,
+
+            update=updates.adam,
+            update_learning_rate=1e-3,
+
+            on_epoch_finished=get_epoch_finished(name, patience),
+
+            custom_scores=custom_scores,
+
+            objective_loss_function=objective_f.cross_correlation,
+
+            verbose=11,
+            max_epochs=epochs
+        )
 
 
 def create_cnn3d_det_string(
@@ -626,7 +654,7 @@ def create_cnn3d_register(
         number_filters=number_filters
     )
 
-    return create_segmentation_net(
+    return create_registration_net(
         layer_list,
         patience,
         name,
