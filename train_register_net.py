@@ -98,7 +98,7 @@ def main():
     x_train, y_train = load_register_data(
         names=names,
         image_size=input_size,
-        seed=seed
+        seed=seed,
     )
 
     try:

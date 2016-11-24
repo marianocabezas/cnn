@@ -12,6 +12,7 @@ from lasagne import updates
 from lasagne import nonlinearities
 from lasagne.init import Constant
 import objective_functions as objective_f
+from iterators import Affine3DTransformBatchIterator
 import numpy as np
 
 
@@ -538,6 +539,7 @@ def create_registration_net(
             layers,
             patience,
             name,
+            batch_iterator=Affine3DTransformBatchIterator(affine_p=0.25, batch_size=64),
             custom_scores=None,
             epochs=200
     ):
@@ -555,6 +557,8 @@ def create_registration_net(
             custom_scores=custom_scores,
 
             objective_loss_function=objective_f.cross_correlation,
+
+            batch_iterator_train=batch_iterator,
 
             verbose=11,
             max_epochs=epochs
