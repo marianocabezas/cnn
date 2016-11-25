@@ -42,20 +42,59 @@ def get_names_from_path(path, baseline, followup, image):
     return name_list
 
 
-def train_net(net, x_train, y_train, b_name='\033[30mbaseline\033[0m', f_name='\033[30mfollow\033[0m'):
+def train_net(
+        net,
+        net_name,
+        x,
+        y,
+        b_name='\033[30mbaseline\033[0m',
+        f_name='\033[30mfollow\033[0m'
+):
     c = color_codes()
     print('                Training vector shape ='
-          ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
+          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     print('                Training labels shape ='
-          ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
+          ' (' + ','.join([str(length) for length in y.shape]) + ')')
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
-          'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
+          'Training (' + c['b'] + 'registration' + c['nc'] + c['g'] + ')' + c['nc'])
     # We try to get the last weights to keep improving the net over and over
-    x_train = np.split(x_train, 2, axis=1)
+    try:
+        net.load_params_from(net_name + 'model_weights.pkl')
+    except IOError:
+        pass
+
+    x_train = np.split(x, 2, axis=1)
     b_inputs = (b_name, x_train[0])
     f_inputs = (f_name, x_train[1])
     inputs = dict([b_inputs, f_inputs])
-    net.fit(inputs, y_train)
+    net.fit(inputs, y)
+
+
+def test_net(
+        net,
+        x,
+        b_name='\033[30mbaseline\033[0m',
+        f_name='\033[30mfollow\033[0m',
+        loc_name='\033[33mloc_net\033[0m'
+):
+    c = color_codes()
+    print('                Testing vector shape ='
+          ' (' + ','.join([str(length) for length in x_test.shape]) + ')')
+    # We try to get the last weights to keep improving the net over and over
+    x_test = np.split(x, 2, axis=1)
+    b_inputs = (b_name, x_test[0])
+    f_inputs = (f_name, x_test[1])
+    inputs = dict([b_inputs, f_inputs])
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
+          'Predicting (' + c['b'] + 'images' + c['nc'] + c['g'] + ')' + c['nc'])
+    y_test = net.predict(inputs)
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
+          'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
+    transforms = net.get_output(loc_name, x_test)
+    for t in transforms:
+        print(t)
+
+    return y_test
 
 
 def main():
@@ -105,12 +144,9 @@ def main():
         seed=seed,
     )
 
-    try:
-        net.load_params_from(net_name + 'model_weights.pkl')
-    except IOError:
-        pass
+    train_net(net, net_name, x_train, y_train)
 
-    train_net(net, x_train, y_train)
+    test_net(net, x_train)
 
 
 if __name__ == '__main__':
