@@ -90,7 +90,7 @@ def test_net(
     y_test = net.predict(inputs)
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
-    transforms = net.get_output(loc_name, x_test)
+    transforms = net.get_output(loc_name, inputs)
     for t in transforms:
         print(t)
 
