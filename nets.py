@@ -562,7 +562,7 @@ def create_registration_net(
 
             objective_loss_function=objective_f.cross_correlation,
 
-            batch_iterator_train=batch_iterator,
+            #batch_iterator_train=batch_iterator,
 
             verbose=11,
             max_epochs=epochs
