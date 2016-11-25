@@ -79,7 +79,7 @@ def test_net(
 ):
     c = color_codes()
     print('                Testing vector shape ='
-          ' (' + ','.join([str(length) for length in x_test.shape]) + ')')
+          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     # We try to get the last weights to keep improving the net over and over
     x_test = np.split(x, 2, axis=1)
     b_inputs = (b_name, x_test[0])
