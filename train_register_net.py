@@ -2,6 +2,7 @@ from __future__ import print_function
 import argparse
 import os
 # import sys
+import lasagne
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
@@ -44,7 +45,6 @@ def get_names_from_path(path, baseline, followup, image):
 
 def train_net(
         net,
-        net_name,
         x,
         y,
         b_name='\033[30mbaseline\033[0m',
@@ -57,11 +57,6 @@ def train_net(
           ' (' + ','.join([str(length) for length in y.shape]) + ')')
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Training (' + c['b'] + 'registration' + c['nc'] + c['g'] + ')' + c['nc'])
-    # We try to get the last weights to keep improving the net over and over
-    try:
-        net.load_params_from(net_name + 'model_weights.pkl')
-    except IOError:
-        pass
 
     x_train = np.split(x, 2, axis=1)
     b_inputs = (b_name, x_train[0])
@@ -77,6 +72,8 @@ def test_net(
         f_name='\033[30mfollow\033[0m',
         loc_name='\033[33mloc_net\033[0m'
 ):
+    import theano
+    import lasagne
     c = color_codes()
     print('                Testing vector shape ='
           ' (' + ','.join([str(length) for length in x.shape]) + ')')
@@ -90,9 +87,21 @@ def test_net(
     y_test = net.predict(inputs)
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
-    transforms = net.get_output(loc_name, inputs)
-    for t in transforms:
-        print(t)
+    f = theano.function(
+        [
+            net.layers_[b_name].input_var,
+            net.layers_[f_name].input_var
+        ],
+        lasagne.layers.get_output(
+            net.layers_[loc_name],
+            {
+                b_name: net.layers_[b_name].input_var,
+                f_name: net.layers_[f_name].input_var
+            }
+        )
+    )
+    print(f({net.layers_[b_name].input_var: x_test[0][1, :, :, :, :], net.layers_[f_name].input_var: x_test[1][1, :, :, :, :]}))
+    print(net.get_output(layer=loc_name, X=None))
 
     return y_test
 
@@ -144,7 +153,13 @@ def main():
         seed=seed,
     )
 
-    train_net(net, net_name, x_train, y_train)
+    # We try to get the last weights to keep improving the net over and over
+    try:
+        net.load_params_from(net_name + 'model_weights.pkl')
+    except IOError:
+        pass
+
+    # train_net(net, net_name, x_train, y_train)
 
     test_net(net, x_train)
 
