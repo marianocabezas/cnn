@@ -562,7 +562,7 @@ def create_registration_net(
 
             objective_loss_function=objective_f.cross_correlation,
 
-            #batch_iterator_train=batch_iterator,
+            batch_iterator_train=batch_iterator,
 
             verbose=11,
             max_epochs=epochs
@@ -650,6 +650,7 @@ def create_cnn3d_register(
             convo_blocks,
             pool_size,
             number_filters,
+            data_augment_p,
             patience,
             name,
             epochs
@@ -666,7 +667,12 @@ def create_cnn3d_register(
         layer_list,
         patience,
         name,
-        epochs=epochs
+        epochs=epochs,
+        batch_iterator=Affine3DTransformBatchIterator(
+                affine_p=data_augment_p,
+                batch_size=64,
+                input_layers=['\033[30mbaseline\033[0m']
+            )
     )
 
 

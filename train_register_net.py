@@ -19,6 +19,7 @@ def parse_inputs():
     parser.add_argument('-k', '--kernel-size', dest='conv_width', type=int, default=3)
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', type=int, default=32)
+    parser.add_argument('-a', '--augment-percentage', dest='augment_p', type=float, default=0.5)
     parser.add_argument('-i', '--input', action='store', dest='input_size', nargs='+', type=int, default=[32, 32, 32])
     parser.add_argument('--baseline-folder', action='store', dest='b_folder', default='time1/preprocessed')
     parser.add_argument('--followup-folder', action='store', dest='f_folder', default='time2/preprocessed')
@@ -74,6 +75,8 @@ def main():
     conv_width = options['conv_width']
     conv_blocks = options['conv_blocks']
 
+    augment_p = options['augment_p']
+
     seed = np.random.randint(np.iinfo(np.int32).max)
 
     input_size_s = 'x'.join([str(length) for length in input_size])
@@ -85,6 +88,7 @@ def main():
         convo_blocks=conv_blocks,
         pool_size=pool_size,
         number_filters=n_filters,
+        data_augment_p=augment_p,
         patience=100,
         name=net_name,
         epochs=2000
