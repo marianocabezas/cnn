@@ -539,7 +539,11 @@ def create_registration_net(
             layers,
             patience,
             name,
-            batch_iterator=Affine3DTransformBatchIterator(affine_p=0.25, batch_size=64),
+            batch_iterator=Affine3DTransformBatchIterator(
+                affine_p=0.25,
+                batch_size=64,
+                input_layers=['\033[30mbaseline\033[0m']
+            ),
             custom_scores=None,
             epochs=200
     ):
@@ -646,6 +650,7 @@ def create_cnn3d_register(
             convo_blocks,
             pool_size,
             number_filters,
+            data_augment_p,
             patience,
             name,
             epochs
@@ -662,7 +667,12 @@ def create_cnn3d_register(
         layer_list,
         patience,
         name,
-        epochs=epochs
+        epochs=epochs,
+        batch_iterator=Affine3DTransformBatchIterator(
+                affine_p=data_augment_p,
+                batch_size=64,
+                input_layers=['\033[30mbaseline\033[0m']
+            )
     )
 
 
