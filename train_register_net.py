@@ -2,7 +2,8 @@ from __future__ import print_function
 import argparse
 import os
 # import sys
-import lasagne
+# import lasagne
+from scipy.ndimage.interpolation import affine_transform
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
@@ -87,6 +88,7 @@ def test_net(
     y_test = net.predict(inputs)
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
+
     f = theano.function(
         [
             net.layers_[b_name].input_var,
@@ -98,12 +100,19 @@ def test_net(
                 b_name: net.layers_[b_name].input_var,
                 f_name: net.layers_[f_name].input_var
             }
-        )
+        ),
+        name='registration'
     )
-    print(f({net.layers_[b_name].input_var: x_test[0][1, :, :, :, :], net.layers_[f_name].input_var: x_test[1][1, :, :, :, :]}))
-    print(net.get_output(layer=loc_name, X=None))
 
-    return y_test
+    scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
+    rand_transf = [np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v], axis=0) for x_t in x_test[0]]
+    x_test_random = np.stack([affine_transform(x_t, transf) for x_t, transf in zip(x_test[0], rand_transf)])
+    transforms = f(x_test_random, x_test[0])
+
+    print(transforms[1])
+    print(rand_transf[1])
+
+    return y_test, transforms
 
 
 def main():

@@ -28,14 +28,15 @@ class Affine3DTransformBatchIterator(BatchIterator):
             return xb, yb
 
         seed = np.random.randint(clock())
-
+        scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
         xb_transformed = xb.copy()
         if isinstance(xb, dict):
             for k in self.input_layers:
                 np.random.seed(seed)
                 x_t = np.random.permutation(xb_transformed[k])
                 for i in range(int(x_t.shape[0] * self.affine_p)):
-                    img_transformed = affine_transform(x_t[i], self.range * (random((4, 4)) - self.min))
+                    t = np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v])
+                    img_transformed = affine_transform(x_t[i], t)
                     xb_transformed[k][i] = img_transformed
         else:
             np.random.seed(seed)
