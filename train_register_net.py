@@ -168,7 +168,7 @@ def main():
     except IOError:
         pass
 
-    train_net(net, net_name, x_train, y_train)
+    train_net(net, x_train, y_train)
 
     test_net(net, x_train)
 
