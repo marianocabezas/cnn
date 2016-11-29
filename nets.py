@@ -245,14 +245,14 @@ def get_layers_registration(
         pool_size=2,
         number_filters=32
 ):
-    baseline_input = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
-    baseline = baseline_input
-    followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
+    source_input = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    source = source_input
+    target = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
     for i in range(convo_blocks):
-        baseline, followup = get_shared_convolutional_block(
-            baseline,
-            followup,
+        source, target = get_shared_convolutional_block(
+            source,
+            target,
             convo_size=convo_size,
             num_filters=number_filters,
             pool_size=pool_size,
@@ -266,7 +266,7 @@ def get_layers_registration(
     register = Transformer3DLayer(
         localization_network=DenseLayer(
             incoming=ConcatLayer(
-                incomings=[baseline, followup],
+                incomings=[source, target],
                 name='union'
             ),
             name='\033[33mloc_net\033[0m',
@@ -275,7 +275,7 @@ def get_layers_registration(
             b=b.flatten,
             nonlinearity=None
         ),
-        incoming=baseline_input,
+        incoming=source_input,
         name='\033[33mtransf\033[0m'
     )
     output = FlattenLayer(
@@ -669,7 +669,7 @@ def create_cnn3d_register(
         epochs=epochs,
         batch_iterator=Affine3DTransformBatchIterator(
                 affine_p=data_augment_p,
-                batch_size=64,
+                batch_size=8,
                 input_layers=['\033[30mbaseline\033[0m']
             )
     )
