@@ -5,7 +5,7 @@ from nolearn.lasagne.handlers import SaveWeights
 from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
 from lasagne import objectives
 from lasagne.layers import InputLayer
-from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
+from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
 from layers import Unpooling3D, Transformer3DLayer, WeightedSumLayer
 from lasagne import updates
@@ -278,10 +278,9 @@ def get_layers_registration(
         incoming=baseline_input,
         name='\033[33mtransf\033[0m'
     )
-    output = ReshapeLayer(
+    output = FlattenLayer(
         incoming=register,
         name='\033[32m3d_out\033[0m',
-        shape=([0], -1)
     )
     return output
 

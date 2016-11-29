@@ -76,8 +76,6 @@ def test_net(
     import theano
     import lasagne
     c = color_codes()
-    print('                Testing vector shape ='
-          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     # We try to get the last weights to keep improving the net over and over
     x_test = np.split(x, 2, axis=1)
     b_inputs = (b_name, x_test[0])
@@ -85,6 +83,8 @@ def test_net(
     inputs = dict([b_inputs, f_inputs])
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'images' + c['nc'] + c['g'] + ')' + c['nc'])
+    print('                Testing vector shape ='
+          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     y_test = net.predict(inputs)
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
@@ -109,8 +109,9 @@ def test_net(
     x_test_random = np.stack([affine_transform(x_t, transf) for x_t, transf in zip(x_test[0], rand_transf)])
     transforms = f(x_test_random, x_test[0])
 
-    print(transforms[1])
-    print(rand_transf[1])
+    for t, t_test in zip(transforms, rand_transf):
+        print(np.reshape(t, (3, 4)))
+        print(t_test[0:3, :])
 
     return y_test, transforms
 
