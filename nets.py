@@ -12,7 +12,7 @@ from lasagne import updates
 from lasagne import nonlinearities
 from lasagne.init import Constant
 import objective_functions as objective_f
-from iterators import Affine3DTransformBatchIterator
+from iterators import Affine3DTransformBatchIterator, Affine3DTransformExpandBatchIterator
 import numpy as np
 
 
@@ -667,9 +667,8 @@ def create_cnn3d_register(
         patience,
         name,
         epochs=epochs,
-        batch_iterator=Affine3DTransformBatchIterator(
-                affine_p=data_augment_p,
-                batch_size=8,
+        batch_iterator=Affine3DTransformExpandBatchIterator(
+                batch_size=16,
                 input_layers=['\033[30mbaseline\033[0m']
             )
     )
