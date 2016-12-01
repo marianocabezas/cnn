@@ -11,9 +11,11 @@ def probabilistic_dsc_objective(predictions, targets):
 def cross_correlation(x, y):
     x_mean = tensor.mean(x)
     y_mean = tensor.mean(y)
+    x_stdev = tensor.std(x)
+    y_stdev = tensor.std(y)
     y_dev = y - y_mean
     x_dev = x - x_mean
-    return 1 - (tensor.sum(x_dev*y_dev / (tensor.mean(x_dev)*tensor.mean(y_dev))))
+    return 1 - (tensor.sum(x_dev*y_dev / (x_stdev*y_stdev)))
 
 
 def logarithmic_dsc_objective(predictions, targets):
