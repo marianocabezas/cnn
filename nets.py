@@ -552,8 +552,8 @@ def create_registration_net(
 
             regression=True,
 
-            update=updates.adam,
-            update_learning_rate=1e-3,
+            update=updates.adadelta,
+            #update_learning_rate=1e-3,
 
             on_epoch_finished=get_epoch_finished(name, patience),
 
