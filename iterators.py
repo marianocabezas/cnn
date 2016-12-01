@@ -1,6 +1,6 @@
 import numpy as np
 from time import clock
-from numpy.random import random
+from utils import random_affine_matrix
 from nolearn.lasagne import BatchIterator
 from scipy.ndimage.interpolation import affine_transform
 
@@ -28,21 +28,20 @@ class Affine3DTransformBatchIterator(BatchIterator):
             return xb, yb
 
         seed = np.random.randint(clock())
-        scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
         xb_transformed = xb.copy()
         if isinstance(xb, dict):
             for k in self.input_layers:
                 np.random.seed(seed)
                 x_t = np.random.permutation(xb_transformed[k])
                 for i in range(int(x_t.shape[0] * self.affine_p)):
-                    t = np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v])
+                    t = random_affine_matrix()
                     img_transformed = affine_transform(x_t[i], t)
                     xb_transformed[k][i] = img_transformed
         else:
             np.random.seed(seed)
             xb_transformed = np.random.permutation(xb)
             for i in range(int(xb.shape[0] * self.affine_p)):
-                t = np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v])
+                t = random_affine_matrix
                 img_transformed = affine_transform(xb[i], t)
                 xb_transformed[i] = img_transformed
 
@@ -82,8 +81,6 @@ class Affine3DTransformExpandBatchIterator(BatchIterator):
 
     def transform_expand(self, x):
 
-        scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
-        transforms = [np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v]) for i in range(self.batch_size-1)]
-        x_trans = np.concatenate([x] + [affine_transform(x, t) for t in transforms])
+        x_trans = np.concatenate([x] + [affine_transform(x, random_affine_matrix()) for i in range(self.batch_size-1)])
 
         return np.expand_dims(x_trans, axis=1)

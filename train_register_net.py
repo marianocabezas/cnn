@@ -7,7 +7,7 @@ from scipy.ndimage.interpolation import affine_transform
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
-from utils import color_codes
+from utils import color_codes, random_affine_matrix
 # from data_creation import load_patch_batch_percent
 from data_creation import load_register_data
 # from nibabel import load as load_nii
@@ -104,15 +104,14 @@ def test_net(
         name='registration'
     )
 
-    scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
-    rand_transf = [np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v], axis=0) for x_t in x_test[0]]
-    x_test_random = np.stack([affine_transform(x_t, transf) for x_t, transf in zip(x_test[0], rand_transf)])
+    rand_transf = [random_affine_matrix() for x_t in x_test[0]]
+    x_test_random = np.stack([affine_transform(x_t, t) for x_t, t in zip(x_test[0], rand_transf)])
     transforms = f(x_test_random, x_test[0])
 
     for tt, t in zip(transforms, rand_transf):
-        print('%s   %s' % (','.join(['%f' % ts for ts in t[0, :]]), ','.join(['%f' % tts for tts in t[:4]])))
-        print('%s = %s' % (','.join(['%f' % ts for ts in t[1, :]]), ','.join(['%f' % tts for tts in t[4:8]])))
-        print('%s   %s' % (','.join(['%f' % ts for ts in t[2, :]]), ','.join(['%f' % tts for tts in t[8:12]])))
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[0, :]]), ','.join(['%f' % tts for tts in tt[:4]])))
+        print('%s = %s' % (','.join(['%f' % ts for ts in t[1, :]]), ','.join(['%f' % tts for tts in tt[4:8]])))
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[2, :]]), ','.join(['%f' % tts for tts in tt[8:12]])))
 
     return y_test, transforms
 

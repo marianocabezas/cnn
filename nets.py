@@ -538,8 +538,7 @@ def create_registration_net(
             layers,
             patience,
             name,
-            batch_iterator=Affine3DTransformBatchIterator(
-                affine_p=0.25,
+            batch_iterator=Affine3DTransformExpandBatchIterator(
                 batch_size=64,
                 input_layers=['\033[30mbaseline\033[0m']
             ),
@@ -553,7 +552,7 @@ def create_registration_net(
             regression=True,
 
             update=updates.adadelta,
-            #update_learning_rate=1e-3,
+            # update_learning_rate=1e-3,
 
             on_epoch_finished=get_epoch_finished(name, patience),
 
