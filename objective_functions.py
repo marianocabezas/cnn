@@ -15,7 +15,7 @@ def cross_correlation(x, y):
     y_stdev = tensor.std(y)
     y_dev = y - y_mean
     x_dev = x - x_mean
-    return 1 - (tensor.sum(x_dev*y_dev / (x_stdev*y_stdev)))
+    return 1 - (tensor.mean(x_dev*y_dev / (x_stdev*y_stdev)))
 
 
 def logarithmic_dsc_objective(predictions, targets):
