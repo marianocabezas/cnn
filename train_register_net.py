@@ -109,9 +109,10 @@ def test_net(
     x_test_random = np.stack([affine_transform(x_t, transf) for x_t, transf in zip(x_test[0], rand_transf)])
     transforms = f(x_test_random, x_test[0])
 
-    for t, t_test in zip(transforms, rand_transf):
-        print(np.reshape(t, (3, 4)))
-        print(t_test[0:3, :])
+    for tt, t in zip(transforms, rand_transf):
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[0, :]]), ','.join(['%f' % tts for tts in t[:4]])))
+        print('%s = %s' % (','.join(['%f' % ts for ts in t[1, :]]), ','.join(['%f' % tts for tts in t[4:8]])))
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[2, :]]), ','.join(['%f' % tts for tts in t[8:12]])))
 
     return y_test, transforms
 
