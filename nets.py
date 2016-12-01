@@ -5,14 +5,14 @@ from nolearn.lasagne.handlers import SaveWeights
 from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
 from lasagne import objectives
 from lasagne.layers import InputLayer
-from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer
+from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
 from layers import Unpooling3D, Transformer3DLayer, WeightedSumLayer
 from lasagne import updates
 from lasagne import nonlinearities
 from lasagne.init import Constant
 import objective_functions as objective_f
-from iterators import Affine3DTransformBatchIterator
+from iterators import Affine3DTransformBatchIterator, Affine3DTransformExpandBatchIterator
 import numpy as np
 
 
@@ -245,14 +245,14 @@ def get_layers_registration(
         pool_size=2,
         number_filters=32
 ):
-    baseline_input = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
-    baseline = baseline_input
-    followup = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
+    source_input = InputLayer(name='\033[30mbaseline\033[0m', shape=(None, 1) + tuple(input_shape))
+    source = source_input
+    target = InputLayer(name='\033[30mfollow\033[0m', shape=(None, 1) + tuple(input_shape))
 
     for i in range(convo_blocks):
-        baseline, followup = get_shared_convolutional_block(
-            baseline,
-            followup,
+        source, target = get_shared_convolutional_block(
+            source,
+            target,
             convo_size=convo_size,
             num_filters=number_filters,
             pool_size=pool_size,
@@ -266,7 +266,7 @@ def get_layers_registration(
     register = Transformer3DLayer(
         localization_network=DenseLayer(
             incoming=ConcatLayer(
-                incomings=[baseline, followup],
+                incomings=[source, target],
                 name='union'
             ),
             name='\033[33mloc_net\033[0m',
@@ -275,13 +275,12 @@ def get_layers_registration(
             b=b.flatten,
             nonlinearity=None
         ),
-        incoming=baseline_input,
+        incoming=source_input,
         name='\033[33mtransf\033[0m'
     )
-    output = ReshapeLayer(
+    output = FlattenLayer(
         incoming=register,
         name='\033[32m3d_out\033[0m',
-        shape=([0], -1)
     )
     return output
 
@@ -668,9 +667,8 @@ def create_cnn3d_register(
         patience,
         name,
         epochs=epochs,
-        batch_iterator=Affine3DTransformBatchIterator(
-                affine_p=data_augment_p,
-                batch_size=64,
+        batch_iterator=Affine3DTransformExpandBatchIterator(
+                batch_size=16,
                 input_layers=['\033[30mbaseline\033[0m']
             )
     )

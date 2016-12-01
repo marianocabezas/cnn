@@ -579,7 +579,8 @@ def load_register_data(names, image_size, seed):
         np.stack([nd.interpolation.zoom(im, [A/(1.0*B) for A, B in zip(image_size, im.shape)]) for im in gen])
         for gen in images]
     x_train = np.stack(images_loaded)
-    y_train = x_train[:, 1, :, :, :].reshape(len(names), -1)
+    x_train = np.concatenate([x_train, np.stack([x_train[:, 1, :, :, :], x_train[:, 0, :, :, :]], axis=1)])
+    y_train = x_train[:, 1, :, :, :].reshape(x_train.shape[0], -1)
     print('                Permuting the data')
     np.random.seed(seed)
     x_train = np.random.permutation(x_train.astype(dtype=np.float32))

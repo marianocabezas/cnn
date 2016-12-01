@@ -2,7 +2,8 @@ from __future__ import print_function
 import argparse
 import os
 # import sys
-import lasagne
+# import lasagne
+from scipy.ndimage.interpolation import affine_transform
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
@@ -75,8 +76,6 @@ def test_net(
     import theano
     import lasagne
     c = color_codes()
-    print('                Testing vector shape ='
-          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     # We try to get the last weights to keep improving the net over and over
     x_test = np.split(x, 2, axis=1)
     b_inputs = (b_name, x_test[0])
@@ -84,9 +83,12 @@ def test_net(
     inputs = dict([b_inputs, f_inputs])
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'images' + c['nc'] + c['g'] + ')' + c['nc'])
+    print('                Testing vector shape ='
+          ' (' + ','.join([str(length) for length in x.shape]) + ')')
     y_test = net.predict(inputs)
     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
           'Predicting (' + c['b'] + 'transformations' + c['nc'] + c['g'] + ')' + c['nc'])
+
     f = theano.function(
         [
             net.layers_[b_name].input_var,
@@ -98,12 +100,21 @@ def test_net(
                 b_name: net.layers_[b_name].input_var,
                 f_name: net.layers_[f_name].input_var
             }
-        )
+        ),
+        name='registration'
     )
-    print(f({net.layers_[b_name].input_var: x_test[0][1, :, :, :, :], net.layers_[f_name].input_var: x_test[1][1, :, :, :, :]}))
-    print(net.get_output(layer=loc_name, X=None))
 
-    return y_test
+    scale_v = np.expand_dims(np.array([.0, .0, .0, 1.0]), axis=0)
+    rand_transf = [np.concatenate([2 * np.random.random((3, 4)) - 1, scale_v], axis=0) for x_t in x_test[0]]
+    x_test_random = np.stack([affine_transform(x_t, transf) for x_t, transf in zip(x_test[0], rand_transf)])
+    transforms = f(x_test_random, x_test[0])
+
+    for tt, t in zip(transforms, rand_transf):
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[0, :]]), ','.join(['%f' % tts for tts in t[:4]])))
+        print('%s = %s' % (','.join(['%f' % ts for ts in t[1, :]]), ','.join(['%f' % tts for tts in t[4:8]])))
+        print('%s   %s' % (','.join(['%f' % ts for ts in t[2, :]]), ','.join(['%f' % tts for tts in t[8:12]])))
+
+    return y_test, transforms
 
 
 def main():
@@ -159,7 +170,7 @@ def main():
     except IOError:
         pass
 
-    # train_net(net, net_name, x_train, y_train)
+    train_net(net, x_train, y_train)
 
     test_net(net, x_train)
 
