@@ -104,7 +104,7 @@ def test_net(
         name='registration'
     )
 
-    rand_transf = [random_affine_matrix() for x_t in x_test[0]]
+    rand_transf = [random_affine_matrix(x_range=1/36.0, y_range=1/36.0, z_range=1/36.0) for x_t in x_test[0]]
     x_test_random = np.stack([affine_transform(x_t, t) for x_t, t in zip(x_test[0], rand_transf)])
     transforms = f(x_test_random, x_test[0])
 
