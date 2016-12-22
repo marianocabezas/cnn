@@ -10,7 +10,7 @@ class Affine3DTransformBatchIterator(BatchIterator):
     Apply affine transform (scale, translate and rotation)
     with a random chance
     """
-    def __init__(self, affine_p, parameter_range=(-1, 1), input_layers=list(),
+    def __init__(self, affine_p, parameter_range=(-np.pi/36, np.pi/36), input_layers=list(),
                  *args, **kwargs):
         super(Affine3DTransformBatchIterator,
               self).__init__(*args, **kwargs)
@@ -53,7 +53,7 @@ class Affine3DTransformExpandBatchIterator(BatchIterator):
     Apply affine transform (scale, translate and rotation)
     with a random chance
     """
-    def __init__(self, parameter_range=(-1/72.0, 1/72.0), input_layers=list(),
+    def __init__(self, parameter_range=(-np.pi/36, np.pi/36), input_layers=list(),
                  *args, **kwargs):
         super(Affine3DTransformExpandBatchIterator,
               self).__init__(*args, **kwargs)

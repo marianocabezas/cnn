@@ -6,6 +6,7 @@ from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyS
 from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
+from lasagne.layers import Conv2DLayer, MaxPool2DLayer
 from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
 from layers import Unpooling3D, Transformer3DLayer, WeightedSumLayer
 from lasagne import updates
@@ -285,6 +286,34 @@ def get_layers_registration(
     return output
 
 
+def get_layers_greenspan(
+        input_channels,
+        images=None
+):
+    input_shape = (input_channels, 32, 32)
+    if not images:
+        images = ['im%d' % i for i in range(input_channels)]
+    baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape) for i in images]
+    followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape) for i in images]
+    lnets = [get_lnet(b, f, i) for b, f, i in zip(baseline, followup, images)]
+    union = ConcatLayer(
+        incomings=lnets,
+        name='concat_final'
+    )
+    dense = DenseLayer(
+        incoming=union,
+        name='\033[32mdense_final\033[0m',
+        num_units=16,
+    )
+    softmax = DenseLayer(
+        incoming=dense,
+        name='\033[32mclass_out\033[0m',
+        num_units=2,
+        nonlinearity=nonlinearities.softmax
+    )
+    return softmax
+
+
 def get_layers_longitudinal(
         convo_blocks,
         input_shape,
@@ -469,6 +498,148 @@ def get_shared_convolutional_block(
     return pool1, pool2
 
 
+def get_convolutional_block2d(
+            incoming,
+            convo_size=3,
+            num_filters=32,
+            pool_size=2,
+            drop=0.5,
+            padding='valid',
+            counter=itertools.count(),
+            sufix=''
+    ):
+        index = counter.next()
+
+        convolution = Conv2DLayer(
+            incoming=incoming,
+            name='\033[34mconv_%s%d\033[0m' % (sufix, index),
+            num_filters=num_filters,
+            filter_size=convo_size,
+            pad=padding
+        )
+        normalisation = batch_norm_dnn(
+            layer=convolution,
+            name='norm_%s%d' % (sufix, index)
+        )
+        dropout = DropoutLayer(
+            incoming=normalisation,
+            name='drop_%s%d' % (sufix, index),
+            p=drop
+        )
+        pool = MaxPool2DLayer(
+            incoming=dropout,
+            name='\033[31mavg_pool_%s%d\033[0m' % (sufix, index),
+            pool_size=pool_size,
+            mode='average_inc_pad'
+        )
+
+        return pool
+
+
+def get_shared_convolutional_block2d(
+        incoming1,
+        incoming2,
+        convo_size=3,
+        num_filters=32,
+        pool_size=2,
+        drop=0.5,
+        padding='valid',
+        counter=itertools.count(),
+        sufix=''
+):
+    index = counter.next()
+
+    convolution1 = Conv2DLayer(
+        incoming=incoming1,
+        name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
+        num_filters=num_filters,
+        filter_size=convo_size,
+        pad=padding
+    )
+    convolution2 = Conv2DLayer(
+        incoming=incoming2,
+        name='\033[34mconv_%s2_%d\033[0m' % (sufix, index),
+        num_filters=num_filters,
+        filter_size=convo_size,
+        W=convolution1.W,
+        b=convolution1.b,
+        pad=padding
+    )
+    dropout1 = DropoutLayer(
+        incoming=convolution1,
+        name='drop_%s1_%d' % (sufix, index),
+        p=drop
+    )
+    dropout2 = DropoutLayer(
+        incoming=convolution2,
+        name='drop_%s2_%d' % (sufix, index),
+        p=drop
+    )
+    pool1 = MaxPool2DLayer(
+        incoming=dropout1,
+        name='\033[31mavg_pool_%s1_%d\033[0m' % (sufix, index),
+        pool_size=pool_size,
+        mode='average_inc_pad'
+    )
+    pool2 = MaxPool2DLayer(
+        incoming=dropout2,
+        name='\033[31mavg_pool_%s2_%d\033[0m' % (sufix, index),
+        pool_size=pool_size,
+        mode='average_inc_pad'
+    )
+
+    return pool1, pool2
+
+
+def get_lnet(incoming1, incoming2, sufix):
+    counter = itertools.count()
+    vnet1_1, vnet1_2 = get_shared_convolutional_block2d(incoming1, incoming2, 5, 24, sufix, drop=0.25, counter=counter)
+    vnet2_1, vnet2_2 = get_shared_convolutional_block2d(vnet1_1, vnet1_2, 3, 32, sufix, drop=0.25)
+    index = counter.next()
+    convolution1 = Conv2DLayer(
+        incoming=vnet2_1,
+        name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
+        num_filters=48,
+        filter_size=3
+    )
+    convolution2 = Conv2DLayer(
+        incoming=vnet2_2,
+        name='\033[34mconv_%s2_%d\033[0m' % (sufix, index),
+        num_filters=48,
+        filter_size=3,
+        W=convolution1.W,
+        b=convolution1.b,
+    )
+    dropout1 = DropoutLayer(
+        incoming=convolution1,
+        name='drop_%s1_%d' % (sufix, index),
+        p=0.25
+    )
+    dropout2 = DropoutLayer(
+        incoming=convolution2,
+        name='drop_%s2_%d' % (sufix, index),
+        p=0.25
+    )
+    union = ConcatLayer(
+        incomings=[dropout1, dropout2],
+        name='concat_%s' % sufix
+    )
+    convolutionf = Conv2DLayer(
+        incoming=union,
+        name='\033[34mconv_%sf\033[0m' % sufix,
+        num_filters=48,
+        filter_size=1
+    )
+    dense = DenseLayer(
+        incoming=convolutionf,
+        name='\033[32mlnet_%s_out\033[0m' % sufix,
+        num_units=16,
+        nonlinearity=nonlinearities.softmax
+    )
+
+    return dense
+
+
 def create_classifier_net(
         layers,
         patience,
@@ -642,6 +813,23 @@ def create_cnn3d_longitudinal(
     )
 
 
+def create_cnn_greenspan(
+            input_channels,
+            images,
+            patience,
+            name,
+            epochs
+    ):
+        layer_list = get_layers_greenspan(input_channels, images)
+
+        return create_classifier_net(
+            layer_list,
+            patience,
+            name,
+            epochs=epochs
+        )
+
+
 def create_cnn3d_register(
             input_shape,
             convo_size,
@@ -666,8 +854,9 @@ def create_cnn3d_register(
         patience,
         name,
         epochs=epochs,
-        batch_iterator=Affine3DTransformExpandBatchIterator(
-                batch_size=16,
+        batch_iterator=Affine3DTransformBatchIterator(
+                affine_p=data_augment_p,
+                batch_size=32,
                 input_layers=['\033[30mbaseline\033[0m']
             )
     )
