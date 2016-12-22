@@ -289,7 +289,7 @@ def get_layers_registration(
 def get_layers_greenspan(
         input_channels,
 ):
-    input_shape = (input_channels, 32, 32)
+    input_shape = (None, input_channels, 32, 32)
     images = ['axial', 'coronal', 'sagital']
     baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape) for i in images]
     followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape) for i in images]
@@ -587,10 +587,10 @@ def get_shared_convolutional_block2d(
     return pool1, pool2
 
 
-def get_lnet(incoming1, incoming2, sufix):
+def get_lnet(in1, in2, sufix):
     counter = itertools.count()
-    vnet1_1, vnet1_2 = get_shared_convolutional_block2d(incoming1, incoming2, 5, 24, sufix, drop=0.25, counter=counter)
-    vnet2_1, vnet2_2 = get_shared_convolutional_block2d(vnet1_1, vnet1_2, 3, 32, sufix, drop=0.25)
+    vnet1_1, vnet1_2 = get_shared_convolutional_block2d(in1, in2, 5, 24, sufix=sufix, drop=0.25, counter=counter)
+    vnet2_1, vnet2_2 = get_shared_convolutional_block2d(vnet1_1, vnet1_2, 3, 32, sufix=sufix, drop=0.25)
     index = counter.next()
     convolution1 = Conv2DLayer(
         incoming=vnet2_1,
