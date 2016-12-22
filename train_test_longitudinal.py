@@ -4,7 +4,7 @@ import os
 import sys
 from time import strftime
 import numpy as np
-from nets import create_cnn3d_longitudinal, create_cnn3d_det_string
+from nets import create_cnn3d_longitudinal, create_cnn3d_det_string, create_cnn_greenspan
 from data_creation import load_patch_batch_percent
 from data_creation import load_iter1_data, load_iter2_data
 from nibabel import load as load_nii
@@ -21,7 +21,7 @@ def parse_inputs():
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
     parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
-    parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=32)
+    parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=[32])
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
@@ -37,6 +37,7 @@ def parse_inputs():
     parser.add_argument('--wm-mask', action='store', dest='wm_mask', default='union_wm_mask.nii.gz')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     parser.add_argument('--register', action='store_true', dest='register', default=False)
+    parser.add_argument('--greenspan', action='store_true', dest='greenspan', default=False)
     parser.add_argument('-m', '--multi-channel', action='store_true', dest='multi', default=False)
     return vars(parser.parse_args())
 
@@ -130,14 +131,17 @@ def main():
 
     # Prepare the net hyperparameters
     padding = options['padding']
-    n_filters = options['number_filters']
+    greenspan = options['greenspan']
     patch_width = options['patch_width']
-    patch_size = (patch_width, patch_width, patch_width)
+    patch_size = (32, 32) if greenspan else (patch_width, patch_width, patch_width)
     pool_size = options['pool_size']
     batch_size = options['batch_size']
     dense_size = options['dense_size']
-    conv_width = options['conv_width']
     conv_blocks = options['conv_blocks']
+    temp = options['number_filters']
+    n_filters = temp if isinstance(temp, list) else [temp]*conv_blocks
+    temp = options['conv_blocks']
+    conv_width = temp if isinstance(temp, list) else [temp]*conv_blocks
     register = options['register']
     multi = options['multi']
     layers = ''.join(options['layers'])
@@ -155,7 +159,8 @@ def main():
     images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
     im_s = '.'.join(images)
     mc_s = '.mc' if multi else ''
-    sufix = '%s.%s%s.p%d.c%s.n%s.d%d.pad_%s' % (mc_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
+    sufix = 'greenspan' if greenspan else\
+        '%s.%s%s.p%d.c%s.n%s.d%d.pad_%s' % (mc_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
 
     # Prepare the data names
     mask_name = options['mask']
@@ -182,36 +187,45 @@ def main():
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                   '<Running iteration ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
             net_name = os.path.join(path, 'deep-longitudinal.init' + sufix + '.')
-            if multi:
-                net = create_cnn3d_det_string(
-                    cnn_path=layers,
-                    input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
-                    convo_size=conv_width,
-                    padding=padding,
-                    dense_size=dense_size,
-                    pool_size=2,
-                    number_filters=n_filters,
+            if greenspan:
+                net = create_cnn_greenspan(
+                    input_channels=names.shape[0]/2,
+                    images=images,
                     patience=10,
-                    multichannel=True,
                     name=net_name,
                     epochs=200
                 )
             else:
-                net = create_cnn3d_longitudinal(
-                    convo_blocks=conv_blocks,
-                    input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
-                    images=images,
-                    convo_size=conv_width,
-                    pool_size=pool_size,
-                    dense_size=dense_size,
-                    number_filters=n_filters,
-                    padding=padding,
-                    drop=0.5,
-                    register=register,
-                    patience=10,
-                    name=net_name,
-                    epochs=200
-                )
+                if multi:
+                    net = create_cnn3d_det_string(
+                        cnn_path=layers,
+                        input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
+                        convo_size=conv_width,
+                        padding=padding,
+                        dense_size=dense_size,
+                        pool_size=2,
+                        number_filters=n_filters,
+                        patience=10,
+                        multichannel=True,
+                        name=net_name,
+                        epochs=200
+                    )
+                else:
+                    net = create_cnn3d_longitudinal(
+                        convo_blocks=conv_blocks,
+                        input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
+                        images=images,
+                        convo_size=conv_width,
+                        pool_size=pool_size,
+                        dense_size=dense_size,
+                        number_filters=n_filters,
+                        padding=padding,
+                        drop=0.5,
+                        register=register,
+                        patience=10,
+                        name=net_name,
+                        epochs=200
+                    )
 
             names_test = get_names_from_path(path, options)
             outputname1 = os.path.join(path, 't' + case + sufix + '.iter1.nii.gz')

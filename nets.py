@@ -288,11 +288,9 @@ def get_layers_registration(
 
 def get_layers_greenspan(
         input_channels,
-        images=None
 ):
     input_shape = (input_channels, 32, 32)
-    if not images:
-        images = ['im%d' % i for i in range(input_channels)]
+    images = ['axial', 'coronal', 'sagital']
     baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape) for i in images]
     followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape) for i in images]
     lnets = [get_lnet(b, f, i) for b, f, i in zip(baseline, followup, images)]
@@ -507,7 +505,7 @@ def get_convolutional_block2d(
             padding='valid',
             counter=itertools.count(),
             sufix=''
-    ):
+):
         index = counter.next()
 
         convolution = Conv2DLayer(
@@ -577,15 +575,13 @@ def get_shared_convolutional_block2d(
     )
     pool1 = MaxPool2DLayer(
         incoming=dropout1,
-        name='\033[31mavg_pool_%s1_%d\033[0m' % (sufix, index),
-        pool_size=pool_size,
-        mode='average_inc_pad'
+        name='\033[31mmax_pool_%s1_%d\033[0m' % (sufix, index),
+        pool_size=pool_size
     )
     pool2 = MaxPool2DLayer(
         incoming=dropout2,
-        name='\033[31mavg_pool_%s2_%d\033[0m' % (sufix, index),
-        pool_size=pool_size,
-        mode='average_inc_pad'
+        name='\033[31mmax_pool_%s2_%d\033[0m' % (sufix, index),
+        pool_size=pool_size
     )
 
     return pool1, pool2
@@ -715,7 +711,7 @@ def create_registration_net(
             ),
             custom_scores=None,
             epochs=200
-    ):
+):
         return NeuralNet(
 
             layers=layers,
