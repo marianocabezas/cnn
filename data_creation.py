@@ -7,7 +7,7 @@ from nibabel import load as load_nii
 from nibabel import save as save_nii
 from nibabel import Nifti1Image as NiftiImage
 from math import floor
-from data_manipulation.generate_features import get_mask_voxels, get_patches
+from data_manipulation.generate_features import get_mask_voxels, get_patches, get_patches2_5d
 from operator import itemgetter
 
 
@@ -185,7 +185,12 @@ def subsample(center_list, sizes, random_state):
 
 
 def get_list_of_patches(image_list, center_list, size):
-    return [get_patches(image, centers, size) for image, centers in zip(image_list, center_list) if centers]
+    patches = [
+        get_patches(image, centers, size) for image, centers in zip(image_list, center_list) if centers
+        ] if len(size) == 3 else [
+        np.stack(get_patches2_5d(image, centers, size)) for image, centers in zip(image_list, center_list) if centers
+        ]
+    return patches
 
 
 def get_centers_from_masks(positive_masks, negative_masks, random_state=42):
