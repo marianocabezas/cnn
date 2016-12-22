@@ -811,12 +811,11 @@ def create_cnn3d_longitudinal(
 
 def create_cnn_greenspan(
             input_channels,
-            images,
             patience,
             name,
             epochs
     ):
-        layer_list = get_layers_greenspan(input_channels, images)
+        layer_list = get_layers_greenspan(input_channels)
 
         return create_classifier_net(
             layer_list,

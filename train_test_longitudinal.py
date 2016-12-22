@@ -190,7 +190,6 @@ def main():
             if greenspan:
                 net = create_cnn_greenspan(
                     input_channels=names.shape[0]/2,
-                    images=images,
                     patience=10,
                     name=net_name,
                     epochs=200
