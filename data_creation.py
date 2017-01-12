@@ -65,6 +65,17 @@ def set_patches(image, centers, patches, patch_size=(15, 15, 15)):
     return patches
 
 
+def save_nifti(image, name):
+    # Reshape the image to the original image's size and save it as nifti
+    # In this case, we add "_reshape" no the original image's name to
+    # remark that it comes from an autoencoder
+    nifti = NiftiImage(image, affine=np.eye(4))
+    print '\033[32;1mSaving\033[0;32m to \033[0m' + name + '\033[32m ...\033[0m'
+    save_nii(nifti, name)
+    # Return it too, just in case
+    return nifti
+
+
 def reshape_to_nifti(image, original_name):
     # Open the original nifti
     original = load_nii(original_name).get_data()
@@ -177,6 +188,18 @@ def load_patch_batch_percent(image_names, batch_size, size, datatype=np.float32)
         ), centers, (100.0 * min((i + batch_size),  n_centers)) / n_centers
 
 
+def load_patch2_5_batch_percent(image_names, batch_size, size, datatype=np.float32):
+    images = [load_nii(name).get_data() for name in image_names]
+    images_norm = [(im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std() for im in images]
+    lesion_centers = get_mask_voxels(images[0].astype(np.bool))
+    n_centers = len(lesion_centers)
+    for i in range(0, n_centers, batch_size):
+        centers = lesion_centers[i:i + batch_size]
+        yield np.array([
+                           np.stack(get_patches2_5d(image, centers, size)).astype(datatype) for image in images_norm
+                           ]), centers, (100.0 * min((i + batch_size),  n_centers)) / n_centers
+
+
 def subsample(center_list, sizes, random_state):
     np.random.seed(random_state)
     indices = [np.random.permutation(range(0, len(centers))).tolist()[:size]
@@ -227,7 +250,16 @@ def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, ra
     negative_patches = get_list_of_patches(images, negative_centers, size)
 
     # Return the patch vectors
-    data = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)]
+
+    data = [
+        np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)
+        ] if len(size) == 3 else [
+        np.swapaxes(
+            np.concatenate([p1, p2], axis=1),
+            0,
+            1
+        ) for p1, p2 in zip(positive_patches, negative_patches)
+        ]
     return data
 
 

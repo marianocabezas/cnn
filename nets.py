@@ -302,6 +302,7 @@ def get_layers_greenspan(
         incoming=union,
         name='\033[32mdense_final\033[0m',
         num_units=16,
+        nonlinearity=nonlinearities.very_leaky_rectify
     )
     softmax = DenseLayer(
         incoming=dense,
@@ -543,7 +544,8 @@ def get_shared_convolutional_block2d(
         drop=0.5,
         padding='valid',
         counter=itertools.count(),
-        sufix=''
+        sufix='',
+        nonlinearity=nonlinearities.very_leaky_rectify
 ):
     index = counter.next()
 
@@ -552,7 +554,8 @@ def get_shared_convolutional_block2d(
         name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
-        pad=padding
+        pad=padding,
+        nonlinearity=nonlinearity
     )
     convolution2 = Conv2DLayer(
         incoming=incoming2,
@@ -561,7 +564,8 @@ def get_shared_convolutional_block2d(
         filter_size=convo_size,
         W=convolution1.W,
         b=convolution1.b,
-        pad=padding
+        pad=padding,
+        nonlinearity=nonlinearity
     )
     dropout1 = DropoutLayer(
         incoming=convolution1,
@@ -596,7 +600,8 @@ def get_lnet(in1, in2, sufix):
         incoming=vnet2_1,
         name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
         num_filters=48,
-        filter_size=3
+        filter_size=3,
+        nonlinearity=nonlinearities.very_leaky_rectify
     )
     convolution2 = Conv2DLayer(
         incoming=vnet2_2,
@@ -605,6 +610,7 @@ def get_lnet(in1, in2, sufix):
         filter_size=3,
         W=convolution1.W,
         b=convolution1.b,
+        nonlinearity=nonlinearities.very_leaky_rectify
     )
     dropout1 = DropoutLayer(
         incoming=convolution1,
@@ -624,13 +630,14 @@ def get_lnet(in1, in2, sufix):
         incoming=union,
         name='\033[34mconv_%sf\033[0m' % sufix,
         num_filters=48,
-        filter_size=1
+        filter_size=1,
+        nonlinearity=nonlinearities.very_leaky_rectify
     )
     dense = DenseLayer(
         incoming=convolutionf,
         name='\033[32mlnet_%s_out\033[0m' % sufix,
         num_units=16,
-        nonlinearity=nonlinearities.softmax
+        nonlinearity=nonlinearities.very_leaky_rectify
     )
 
     return dense
