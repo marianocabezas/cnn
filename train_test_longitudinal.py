@@ -322,7 +322,7 @@ def main():
                 else:
                     image1 = test_net(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
 
-                    save_nifti(image1, outputname1)
+                save_nifti(image1, outputname1)
             if not greenspan:
                 ''' Here we get the seeds '''
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
