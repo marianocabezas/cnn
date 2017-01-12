@@ -284,7 +284,8 @@ def main():
                     )
 
             names_test = get_names_from_path(path, options)
-            outputname1 = os.path.join(path, 't' + case + sufix + '.iter1.nii.gz')
+            outputname1 = os.path.join(path, 't' + case + sufix + '.iter1.nii.gz') if not greenspan else os.path.join(
+                path, 't' + case + sufix + '.nii.gz')
             try:
                 net.load_params_from(net_name + 'model_weights.pkl')
             except IOError:
