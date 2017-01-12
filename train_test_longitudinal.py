@@ -36,6 +36,7 @@ def parse_inputs():
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     parser.add_argument('--wm-mask', action='store', dest='wm_mask', default='union_wm_mask.nii.gz')
+    parser.add_argument('--brain-mask', action='store', dest='brain_mask', default='brainmask.nii.gz')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     parser.add_argument('--register', action='store_true', dest='register', default=False)
     parser.add_argument('--greenspan', action='store_true', dest='greenspan', default=False)
@@ -160,7 +161,7 @@ def test_greenspan(
             images,
             b_name='\033[30mbaseline_%s\033[0m',
             f_name='\033[30mfollow_%s\033[0m'
-    ):
+):
 
     n_axis = len(images)
     n_images = len(names) / 2
