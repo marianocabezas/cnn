@@ -126,6 +126,7 @@ def train_greenspan(
 def test_net(
         net,
         names,
+        mask,
         batch_size,
         patch_size,
         image_size,
@@ -138,7 +139,7 @@ def test_net(
     test = np.zeros(image_size)
     print('              0% of data tested', end='\r')
     sys.stdout.flush()
-    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size):
+    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size, mask=mask):
         batch = np.split(batch, n_channels, axis=1)
         b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, batch[:n_images])]
         f_inputs = [(f_name % im, x_im) for im, x_im in zip(images, batch[n_images:])]
@@ -155,6 +156,7 @@ def test_net(
 def test_greenspan(
             net,
             names,
+            mask,
             batch_size,
             patch_size,
             image_size,
@@ -168,7 +170,7 @@ def test_greenspan(
     test = np.zeros(image_size)
     print('              0% of data tested', end='\r')
     sys.stdout.flush()
-    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size):
+    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size, mask=mask):
         batch = np.split(np.swapaxes(batch, 0, 2), n_axis, axis=1)
         b_inputs = [(b_name % im, np.squeeze(x_im[:, :, :n_images, :, :])) for im, x_im in zip(images, batch)]
         f_inputs = [(f_name % im, np.squeeze(x_im[:, :, n_images:, :, :])) for im, x_im in zip(images, batch)]
@@ -319,9 +321,25 @@ def main():
                       '<Creating the probability map ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
                 image_nii = load_nii(os.path.join(path, mask_name))
                 if greenspan:
-                    image1 = test_greenspan(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
+                    image1 = test_greenspan(
+                        net,
+                        names_test,
+                        image_nii.get_data(),
+                        batch_size,
+                        patch_size,
+                        image_nii.get_data().shape,
+                        images
+                    )
                 else:
-                    image1 = test_net(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
+                    image1 = test_net(
+                        net,
+                        names_test,
+                        image_nii.get_data(),
+                        batch_size,
+                        patch_size,
+                        image_nii.get_data().shape,
+                        images
+                    )
 
                 save_nifti(image1, outputname1)
             if not greenspan:
@@ -331,6 +349,7 @@ def main():
                 for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
+                    mask_nii = load_nii(os.path.join(patient_path, mask_name))
                     try:
                         load_nii(outputname)
                         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
@@ -340,7 +359,15 @@ def main():
                               c['g'] + '     Testing with patient ' + c['b'] + patient[0].rsplit('/')[-4] + c['nc'])
                         image_nii = load_nii(patient[0])
 
-                        image = test_net(net, patient, batch_size, patch_size, image_nii.get_data().shape, images)
+                        image = test_net(
+                            net,
+                            patient,
+                            mask_nii.get_data(),
+                            batch_size,
+                            patch_size,
+                            image_nii.get_data().shape,
+                            images
+                        )
 
                         print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
                         save_nifti(image, outputname)
