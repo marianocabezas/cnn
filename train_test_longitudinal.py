@@ -320,11 +320,12 @@ def main():
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Creating the probability map ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
                 image_nii = load_nii(os.path.join(path, mask_name))
+                mask_nii = load_nii(os.path.join(path, wm_name))
                 if greenspan:
                     image1 = test_greenspan(
                         net,
                         names_test,
-                        image_nii.get_data(),
+                        mask_nii.get_data(),
                         batch_size,
                         patch_size,
                         image_nii.get_data().shape,
@@ -334,7 +335,7 @@ def main():
                     image1 = test_net(
                         net,
                         names_test,
-                        image_nii.get_data(),
+                        mask_nii.get_data(),
                         batch_size,
                         patch_size,
                         image_nii.get_data().shape,
@@ -349,7 +350,7 @@ def main():
                 for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
-                    mask_nii = load_nii(os.path.join(patient_path, mask_name))
+                    mask_nii = load_nii(os.path.join('/'.join(patient[0].rsplit('/')[:-3]), wm_name))
                     try:
                         load_nii(outputname)
                         print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
@@ -435,8 +436,16 @@ def main():
                     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                           '<Creating the probability map ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
                     image_nii = load_nii(os.path.join(path, mask_name))
-
-                    image2 = test_net(net, names_test, batch_size, patch_size, image_nii.get_data().shape, images)
+                    mask_nii = load_nii(os.path.join(path, wm_name))
+                    image2 = test_net(
+                        net,
+                        names_test,
+                        mask_nii.get_data(),
+                        batch_size,
+                        patch_size,
+                        image_nii.get_data().shape,
+                        images
+                    )
 
                     save_nifti(image2, outputname2)
 
