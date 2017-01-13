@@ -5,7 +5,7 @@ import sys
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_longitudinal, create_cnn3d_det_string, create_cnn_greenspan
-from data_creation import load_patch_batch_percent, load_patch2_5_batch_percent
+from data_creation import load_patch_batch_percent
 from data_creation import load_iter1_data, load_iter2_data
 from data_creation import save_nifti
 from nibabel import load as load_nii
@@ -168,7 +168,7 @@ def test_greenspan(
     test = np.zeros(image_size)
     print('              0% of data tested', end='\r')
     sys.stdout.flush()
-    for batch, centers, percent in load_patch2_5_batch_percent(names, batch_size, patch_size):
+    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size):
         batch = np.split(np.swapaxes(batch, 0, 2), n_axis, axis=1)
         b_inputs = [(b_name % im, np.squeeze(x_im[:, :, :n_images, :, :])) for im, x_im in zip(images, batch)]
         f_inputs = [(f_name % im, np.squeeze(x_im[:, :, n_images:, :, :])) for im, x_im in zip(images, batch)]
