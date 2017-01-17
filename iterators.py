@@ -84,3 +84,4 @@ class Affine3DTransformExpandBatchIterator(BatchIterator):
         x_trans = np.concatenate([x] + [affine_transform(x, random_affine_matrix()) for i in range(self.batch_size-1)])
 
         return np.expand_dims(x_trans, axis=1)
+
