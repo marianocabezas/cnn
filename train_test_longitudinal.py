@@ -88,8 +88,7 @@ def train_net(net, x_train, y_train, images, b_name='\033[30mbaseline_%s\033[0m'
           ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
     print('                Training labels shape ='
           ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
-    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
-          'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] + 'Training' + c['nc'])
     # We try to get the last weights to keep improving the net over and over
     x_train = np.split(x_train, n_channels, axis=1)
     b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, x_train[:n_images])]
@@ -113,8 +112,7 @@ def train_greenspan(
               ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
         print('                Training labels shape ='
               ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
-        print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
-              'Training (' + c['b'] + 'initial' + c['nc'] + c['g'] + ')' + c['nc'])
+        print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] + 'Training' + c['nc'])
         # We try to get the last weights to keep improving the net over and over
         x_train = np.split(x_train, n_axis, axis=1)
         b_inputs = [(b_name % im, np.squeeze(x_im[:, :, :n_images, :, :])) for im, x_im in zip(images, x_train)]
