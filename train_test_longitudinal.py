@@ -219,7 +219,6 @@ def main():
     sufix = '.greenspan' if greenspan else\
         '%s.%s%s.p%d.c%s.n%s.d%d.pad_%s' % (mc_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
 
-
     # Prepare the data names
     mask_name = options['mask']
     wm_name = options['wm_mask']
