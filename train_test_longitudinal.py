@@ -348,6 +348,7 @@ def main():
                 for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
+                    outputname_final = os.path.join(patient_path, 't' + case + sufix + '.final.nii.gz')
                     mask_nii = load_nii(os.path.join('/'.join(patient[0].rsplit('/')[:-3]), wm_name))
                     try:
                         load_nii(outputname)
@@ -370,6 +371,7 @@ def main():
 
                         print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
                         save_nifti(image, outputname)
+                        save_nifti(image > 0.5, outputname_final)
 
                 ''' Here we perform the last iteration '''
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
