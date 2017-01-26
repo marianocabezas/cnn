@@ -341,14 +341,16 @@ def main():
                     )
 
                 save_nifti(image1, outputname1)
-            if not greenspan:
+            if greenspan:
+                outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
+                save_nifti((image1 > 0.5).astype(dtype=np.int8), outputname_final)
+            else:
                 ''' Here we get the seeds '''
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                       c['g'] + '<Looking for seeds for the final iteration>' + c['nc'])
                 for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
-                    outputname_final = os.path.join(patient_path, 't' + case + sufix + '.final.nii.gz')
                     mask_nii = load_nii(os.path.join('/'.join(patient[0].rsplit('/')[:-3]), wm_name))
                     try:
                         load_nii(outputname)
@@ -371,7 +373,6 @@ def main():
 
                         print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
                         save_nifti(image, outputname)
-                        save_nifti(image > 0.5, outputname_final)
 
                 ''' Here we perform the last iteration '''
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
