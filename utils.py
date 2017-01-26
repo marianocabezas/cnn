@@ -12,7 +12,7 @@ def color_codes():
     return codes
 
 
-def random_affine_matrix(x_range=np.pi, y_range=np.pi, z_range=np.pi, t_range=5):
+def random_affine3d_matrix(x_range=np.pi, y_range=np.pi, z_range=np.pi, t_range=5):
     x_angle = x_range * np.random.random() - (x_range / 2)
     y_angle = y_range * np.random.random() - (y_range / 2)
     z_angle = z_range * np.random.random() - (z_range / 2)

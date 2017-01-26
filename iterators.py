@@ -1,6 +1,6 @@
 import numpy as np
 from time import clock
-from utils import random_affine_matrix
+from utils import random_affine3d_matrix
 from nolearn.lasagne import BatchIterator
 from scipy.ndimage.interpolation import affine_transform
 
@@ -34,14 +34,14 @@ class Affine3DTransformBatchIterator(BatchIterator):
                 np.random.seed(seed)
                 x_t = np.random.permutation(xb_transformed[k])
                 for i in range(int(x_t.shape[0] * self.affine_p)):
-                    t = random_affine_matrix()
+                    t = random_affine3d_matrix()
                     img_transformed = affine_transform(x_t[i], t)
                     xb_transformed[k][i] = img_transformed
         else:
             np.random.seed(seed)
             xb_transformed = np.random.permutation(xb)
             for i in range(int(xb.shape[0] * self.affine_p)):
-                t = random_affine_matrix
+                t = random_affine3d_matrix
                 img_transformed = affine_transform(xb[i], t)
                 xb_transformed[i] = img_transformed
 
@@ -81,7 +81,7 @@ class Affine3DTransformExpandBatchIterator(BatchIterator):
 
     def transform_expand(self, x):
 
-        x_trans = np.concatenate([x] + [affine_transform(x, random_affine_matrix()) for i in range(self.batch_size-1)])
+        x_trans = np.concatenate([x] + [affine_transform(x, random_affine3d_matrix()) for i in range(self.batch_size-1)])
 
         return np.expand_dims(x_trans, axis=1)
 
