@@ -7,7 +7,7 @@ from scipy.ndimage.interpolation import affine_transform
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
-from utils import color_codes, random_affine_matrix
+from utils import color_codes, random_affine3d_matrix
 # from data_creation import load_patch_batch_percent
 from data_creation import load_register_data
 # from nibabel import load as load_nii
@@ -104,7 +104,7 @@ def test_net(
         name='registration'
     )
 
-    rand_transf = [random_affine_matrix(x_range=1/36.0, y_range=1/36.0, z_range=1/36.0) for x_t in x_test[0]]
+    rand_transf = [random_affine3d_matrix(x_range=1/36.0, y_range=1/36.0, z_range=1/36.0) for x_t in x_test[0]]
     x_test_random = np.stack([affine_transform(x_t, t) for x_t, t in zip(x_test[0], rand_transf)])
     transforms = f(x_test_random, x_test[0])
 
