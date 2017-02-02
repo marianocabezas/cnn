@@ -6,7 +6,7 @@ from time import strftime
 import numpy as np
 from nets import create_cnn3d_longitudinal, create_cnn3d_det_string, create_cnn_greenspan
 from data_creation import load_patch_batch_percent
-from data_creation import load_iter1_data, load_iter2_data
+from data_creation import load_cnn_data
 from data_creation import save_nifti
 from nibabel import load as load_nii
 from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
@@ -14,6 +14,7 @@ from utils import color_codes
 
 
 def parse_inputs():
+    # I decided to separate this function, for easier acces to the command line parameters
     parser = argparse.ArgumentParser(description='Test different nets with 3D data.')
     parser.add_argument('-f', '--folder', dest='dir_name', default='/home/mariano/DATA/Subtraction/')
     parser.add_argument('-i', '--patch-width', dest='patch_width', type=int, default=9)
@@ -24,22 +25,27 @@ def parse_inputs():
     parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=[32])
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
-    parser.add_argument('--prefix-folder', dest='prefix', default='time2/preprocessed/')
-    parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
+    parser.add_argument('--image-folder', dest='image_folder', default='time2/preprocessed/')
+    parser.add_argument('--deformation-folder', dest='defo_folder', default='time2/deformation/')
     parser.add_argument('--no-flair', action='store_false', dest='use_flair', default=True)
     parser.add_argument('--no-pd', action='store_false', dest='use_pd', default=True)
     parser.add_argument('--no-t2', action='store_false', dest='use_t2', default=True)
+    parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
     parser.add_argument('--t2-baseline', action='store', dest='t2_b', default='t2_moved.nii.gz')
     parser.add_argument('--flair-12m', action='store', dest='flair_f', default='flair_registered.nii.gz')
     parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected.nii.gz')
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
+    parser.add_argument('--flair-defo', action='store', dest='flair_d', default='flair_multidemons_deformation.nii.gz')
+    parser.add_argument('--pd-defo', action='store', dest='pd_d', default='pd_multidemons_deformation.nii.gz')
+    parser.add_argument('--t2-defo', action='store', dest='t2_d', default='t2_multidemons_deformation.nii.gz')
     parser.add_argument('--mask', action='store', dest='mask', default='gt_mask.nii')
     parser.add_argument('--wm-mask', action='store', dest='wm_mask', default='union_wm_mask.nii.gz')
     parser.add_argument('--brain-mask', action='store', dest='brain_mask', default='brainmask.nii.gz')
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     parser.add_argument('--register', action='store_true', dest='register', default=False)
     parser.add_argument('--greenspan', action='store_true', dest='greenspan', default=False)
+    parser.add_argument('--deformation', action='store_true', dest='deformation', default=False)
     parser.add_argument('-m', '--multi-channel', action='store_true', dest='multi', default=False)
     return vars(parser.parse_args())
 
@@ -51,13 +57,13 @@ def get_names_from_path(path, options, patients=None):
     use_t2 = options['use_t2']
 
     # Prepare the names for each image
-    prefix_name = options['prefix']
-    flair_b_name = os.path.join(prefix_name, options['flair_b'])
-    pd_b_name = os.path.join(prefix_name, options['pd_b'])
-    t2_b_name = os.path.join(prefix_name, options['t2_b'])
-    flair_f_name = os.path.join(prefix_name, options['flair_f'])
-    pd_f_name = os.path.join(prefix_name, options['pd_f'])
-    t2_f_name = os.path.join(prefix_name, options['t2_f'])
+    images_name = options['image_folder']
+    flair_b_name = os.path.join(images_name, options['flair_b'])
+    pd_b_name = os.path.join(images_name, options['pd_b'])
+    t2_b_name = os.path.join(images_name, options['t2_b'])
+    flair_f_name = os.path.join(images_name, options['flair_f'])
+    pd_f_name = os.path.join(images_name, options['pd_f'])
+    t2_f_name = os.path.join(images_name, options['t2_f'])
 
     # Prepare the names
     if patients:
@@ -67,7 +73,6 @@ def get_names_from_path(path, options, patients=None):
         flair_f_names = [os.path.join(path, patient, flair_f_name) for patient in patients] if use_flair else None
         pd_f_names = [os.path.join(path, patient, pd_f_name) for patient in patients] if use_pd else None
         t2_f_names = [os.path.join(path, patient, t2_f_name) for patient in patients] if use_t2 else None
-        name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
     else:
         flair_b_names = os.path.join(path, flair_b_name) if use_flair else None
         pd_b_names = os.path.join(path, pd_b_name) if use_pd else None
@@ -75,25 +80,62 @@ def get_names_from_path(path, options, patients=None):
         flair_f_names = os.path.join(path, flair_f_name) if use_flair else None
         pd_f_names = os.path.join(path, pd_f_name) if use_pd else None
         t2_f_names = os.path.join(path, t2_f_name) if use_t2 else None
-        name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
+    name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
 
     return np.stack([name for name in name_list if name is not None])
 
 
-def train_net(net, x_train, y_train, images, b_name='\033[30mbaseline_%s\033[0m', f_name='\033[30mfollow_%s\033[0m'):
+def get_defonames_from_path(path, options, patients=None):
+    # Check if all images should be used
+    use_flair = options['use_flair']
+    use_pd = options['use_pd']
+    use_t2 = options['use_t2']
+
+    # Prepare the names for each image
+    defo_name = options['defo_folder']
+    flair_d_name = os.path.join(defo_name, options['flair_d'])
+    pd_d_name = os.path.join(defo_name, options['pd_d'])
+    t2_d_name = os.path.join(defo_name, options['t2_d'])
+
+    # Prepare the names
+    if patients:
+        flair_d_names = [os.path.join(path, patient, flair_d_name) for patient in patients] if use_flair else None
+        pd_d_names = [os.path.join(path, patient, pd_d_name) for patient in patients] if use_pd else None
+        t2_d_names = [os.path.join(path, patient, t2_d_name) for patient in patients] if use_t2 else None
+    else:
+        flair_d_names = os.path.join(path, flair_d_name) if use_flair else None
+        pd_d_names = os.path.join(path, pd_d_name) if use_pd else None
+        t2_d_names = os.path.join(path, t2_d_name) if use_t2 else None
+    name_list = [flair_d_names, pd_d_names, t2_d_names]
+
+    return np.stack([name for name in name_list if name is not None])
+
+
+def train_net(
+        net,
+        x_train,
+        y_train,
+        images,
+        b_name='\033[30mbaseline_%s\033[0m',
+        f_name='\033[30mfollow_%s\033[0m',
+        d_name='\033[30mdeformation_%s\033[0m'
+):
+    defo = False
+    d_inputs = []
     c = color_codes()
-    n_channels = x_train.shape[1]
     n_images = len(images)
-    print('                Training vector shape ='
-          ' (' + ','.join([str(length) for length in x_train.shape]) + ')')
-    print('                Training labels shape ='
-          ' (' + ','.join([str(length) for length in y_train.shape]) + ')')
-    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] + 'Training' + c['nc'])
     # We try to get the last weights to keep improving the net over and over
+    if isinstance(x_train, tuple):
+        defo = True
+        x_train, defo_train = x_train
+        defo_train = np.split(defo_train, len(images), axis=1)
+        d_inputs = [(d_name % im, np.squeeze(d_im)) for im, d_im in zip(images, defo_train)]
+    print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] + 'Training' + c['nc'])
+    n_channels = x_train.shape[1]
     x_train = np.split(x_train, n_channels, axis=1)
     b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, x_train[:n_images])]
     f_inputs = [(f_name % im, x_im) for im, x_im in zip(images, x_train[n_images:])]
-    inputs = dict(b_inputs + f_inputs)
+    inputs = dict(b_inputs + f_inputs) if not defo else dict(b_inputs + f_inputs + d_inputs)
     net.fit(inputs, y_train)
 
 
@@ -129,19 +171,28 @@ def test_net(
         patch_size,
         image_size,
         images,
+        d_names=None,
         b_name='\033[30mbaseline_%s\033[0m',
-        f_name='\033[30mfollow_%s\033[0m'
+        f_name='\033[30mfollow_%s\033[0m',
+        d_name='\033[30mdeformation_%s\033[0m'
 ):
+    defo = False
+    d_inputs = []
     n_images = len(images)
     n_channels = n_images * 2
     test = np.zeros(image_size)
     print('              0% of data tested', end='\r')
     sys.stdout.flush()
-    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size, mask=mask):
+    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size, d_names=d_names, mask=mask):
+        if isinstance(batch, tuple):
+            defo = True
+            batch, d_batch = batch
+            d_batch = np.split(d_batch, len(images), axis=1)
+            d_inputs = [(d_name % im, np.squeeze(d_im)) for im, d_im in zip(images, d_batch)]
         batch = np.split(batch, n_channels, axis=1)
         b_inputs = [(b_name % im, x_im) for im, x_im in zip(images, batch[:n_images])]
         f_inputs = [(f_name % im, x_im) for im, x_im in zip(images, batch[n_images:])]
-        inputs = dict(b_inputs + f_inputs)
+        inputs = dict(b_inputs + f_inputs) if not defo else dict(b_inputs + f_inputs + d_inputs)
         y_pred = net.predict_proba(inputs)
         print('              %f%% of data tested' % percent, end='\r')
         sys.stdout.flush()
@@ -186,25 +237,25 @@ def main():
     options = parse_inputs()
     c = color_codes()
 
+    # Prepare the net architecture parameters
+    register = options['register']
+    multi = options['multi']
+    defo = options['deformation']
+    layers = ''.join(options['layers'])
+    greenspan = options['greenspan']
+
     # Prepare the net hyperparameters
     padding = options['padding']
-    greenspan = options['greenspan']
     patch_width = options['patch_width']
     patch_size = (32, 32) if greenspan else (patch_width, patch_width, patch_width)
     pool_size = options['pool_size']
     batch_size = options['batch_size']
     dense_size = options['dense_size']
     conv_blocks = options['conv_blocks']
-    temp = options['number_filters']
-    n_filters = temp if isinstance(temp, list) else [temp]*conv_blocks
-    temp = options['conv_blocks']
-    conv_width = temp if isinstance(temp, list) else [temp]*conv_blocks
-    register = options['register']
-    multi = options['multi']
-    layers = ''.join(options['layers'])
-    reg_s = '.reg' if register else ''
-    conv_s = 'c'.join(['%d' % cw for cw in conv_width])
-    filters_s = 'n'.join(['%d' % nf for nf in n_filters])
+    n_filters = options['number_filters']
+    n_filters = n_filters if isinstance(n_filters, list) else [n_filters]*conv_blocks
+    conv_width = options['conv_blocks']
+    conv_size = conv_width if isinstance(conv_width, list) else [conv_width]*conv_blocks
 
     # Prepare the sufix that will be added to the results for the net and images
     use_flair = options['use_flair']
@@ -214,10 +265,14 @@ def main():
     pd_name = 'pd' if use_pd else None
     t2_name = 't2' if use_t2 else None
     images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
+    reg_s = '.reg' if register else ''
+    conv_s = 'c'.join(['%d' % cw for cw in conv_size])
+    filters_s = 'n'.join(['%d' % nf for nf in n_filters])
     im_s = '.'.join(images)
     mc_s = '.mc' if multi else ''
-    sufix = '.greenspan' if greenspan else\
-        '%s.%s%s.p%d.c%s.n%s.d%d.pad_%s' % (mc_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
+    d_s = 'd.' if defo else ''
+    sufix = '.greenspan' if greenspan else '%s.%s%s%s.p%d.c%s.n%s.d%d.pad_%s' %\
+        (mc_s, d_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
 
     # Prepare the data names
     mask_name = options['mask']
@@ -227,18 +282,25 @@ def main():
                 if os.path.isdir(os.path.join(dir_name, f))]
     n_patients = len(patients)
     names = get_names_from_path(dir_name, options, patients)
+    defo_names = get_defonames_from_path(dir_name, options, patients) if defo else None
 
+    # Random initialisation
     seed = np.random.randint(np.iinfo(np.int32).max)
 
+    # Metrics output
     metrics_file = os.path.join(dir_name, 'metrics' + sufix)
 
     with open(metrics_file, 'w') as f:
 
         print(c['c'] + '[' + strftime("%H:%M:%S") + '] ' + 'Starting leave-one-out' + c['nc'])
-
+        # Leave-one-out main loop (we'll do 2 training iterations with testing for each patient)
         for i in range(0, n_patients):
+            # Prepare the data relevant to the leave-one-out (subtract the patient from the dataset and set the path)
+            # Also, prepare the network
             case = patients[i]
             path = os.path.join(dir_name, case)
+            names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
+            defo_names_lou = np.concatenate([defo_names[:, :i], defo_names[:, i + 1:]], axis=1) if defo else None
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']  ' + c['nc'] + 'Patient ' + c['b'] + case + c['nc'] +
                   c['g'] + ' (%d/%d)' % (i+1, n_patients))
             print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
@@ -257,7 +319,7 @@ def main():
                     net = create_cnn3d_det_string(
                         cnn_path=layers,
                         input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
-                        convo_size=conv_width,
+                        convo_size=conv_size,
                         padding=padding,
                         dense_size=dense_size,
                         pool_size=2,
@@ -272,45 +334,53 @@ def main():
                         convo_blocks=conv_blocks,
                         input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                         images=images,
-                        convo_size=conv_width,
+                        convo_size=conv_size,
                         pool_size=pool_size,
                         dense_size=dense_size,
                         number_filters=n_filters,
                         padding=padding,
                         drop=0.5,
                         register=register,
+                        defo=defo,
                         patience=10,
                         name=net_name,
                         epochs=200
                     )
 
             names_test = get_names_from_path(path, options)
+            defo_names_test = get_defonames_from_path(path, options) if defo else None
             outputname1 = os.path.join(path, 't' + case + sufix + '.iter1.nii.gz') if not greenspan else os.path.join(
                 path, 't' + case + sufix + '.nii.gz')
+
+            # First we check that we did not train that patient, in order to save time
             try:
                 net.load_params_from(net_name + 'model_weights.pkl')
             except IOError:
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                       c['g'] + 'Loading the data for ' + c['b'] + 'iteration 1' + c['nc'])
-                names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
+                # Data loading. Most of it is based on functions from data_creation that load the data.
+                #  But we also need to prepare the name list to load the leave-one-out data.
                 paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i+1:]])]
                 mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
                 wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
 
-                x_train, y_train = load_iter1_data(
-                    names_lou=names_lou,
+                x_train, y_train = load_cnn_data(
+                    names=names_lou,
                     mask_names=mask_names,
+                    defo_names=defo_names_lou,
                     roi_names=wm_names,
                     patch_size=patch_size,
-                    seed=seed
+                    random_state=seed,
+                    iter1=True
                 )
 
+                # Afterwards we train. Check the relevant training function.
                 if greenspan:
                     x_train = np.swapaxes(x_train, 1, 2)
                     train_greenspan(net, x_train, y_train, images)
                 else:
                     train_net(net, x_train, y_train, images)
-
+            # Then we test the net. Again we save time by checking if we already tested that patient.
             try:
                 image_nii = load_nii(outputname1)
                 image1 = image_nii.get_data()
@@ -337,18 +407,27 @@ def main():
                         batch_size,
                         patch_size,
                         image_nii.get_data().shape,
-                        images
+                        images,
+                        defo_names_test
                     )
 
                 save_nifti(image1, outputname1)
             if greenspan:
+                # Since Greenspan did not use two iterations, we must get the final mask here.
                 outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
                 save_nifti((image1 > 0.5).astype(dtype=np.int8), outputname_final)
             else:
+                # If not, we test the net with the training set to look for misclassified negative with a high
+                # probability of being positives according to the net.
+                # These voxels will be the input of the second training iteration.
                 ''' Here we get the seeds '''
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                       c['g'] + '<Looking for seeds for the final iteration>' + c['nc'])
-                for patient in np.rollaxis(np.concatenate([names[:, :i], names[:, i+1:]], axis=1), 1):
+                patients_names = zip(np.rollaxis(names_lou, 1), np.rollaxis(defo_names_lou, 1)) if defo\
+                    else np.rollaxis(names_lou, 1)
+                for patient in patients_names:
+                    if defo:
+                        patient, d_patient = patient
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
                     mask_nii = load_nii(os.path.join('/'.join(patient[0].rsplit('/')[:-3]), wm_name))
@@ -368,13 +447,16 @@ def main():
                             batch_size,
                             patch_size,
                             image_nii.get_data().shape,
-                            images
+                            images,
+                            d_patient
                         )
 
                         print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
                         save_nifti(image, outputname)
 
                 ''' Here we perform the last iteration '''
+                # Finally we perform the final iteration. After refactoring the code, the code looks almost exactly
+                # the same as the training of the first iteration.
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
                 outputname2 = os.path.join(path, 't' + case + sufix + '.iter2.nii.gz')
@@ -383,7 +465,7 @@ def main():
                     net = create_cnn3d_det_string(
                         cnn_path=layers,
                         input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
-                        convo_size=conv_width,
+                        convo_size=conv_size,
                         padding=padding,
                         pool_size=2,
                         dense_size=dense_size,
@@ -398,13 +480,14 @@ def main():
                         convo_blocks=conv_blocks,
                         input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
                         images=images,
-                        convo_size=conv_width,
+                        convo_size=conv_size,
                         pool_size=pool_size,
                         dense_size=dense_size,
                         number_filters=n_filters,
                         padding=padding,
                         drop=0.5,
                         register=register,
+                        defo=defo,
                         patience=50,
                         name=net_name,
                         epochs=2000
@@ -415,18 +498,19 @@ def main():
                 except IOError:
                     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' +
                           c['g'] + 'Loading the data for ' + c['b'] + 'iteration 2' + c['nc'])
-                    names_lou = np.concatenate([names[:, :i], names[:, i + 1:]], axis=1)
                     roi_paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
                     paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i + 1:]])]
                     roi_names = [os.path.join(p_path, 't' + case + sufix + '.nii.gz') for p_path in roi_paths]
                     mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
 
-                    x_train, y_train = load_iter2_data(
-                        names_lou=names_lou,
+                    x_train, y_train = load_cnn_data(
+                        names=names_lou,
                         mask_names=mask_names,
+                        defo_names=defo_names_lou,
                         roi_names=roi_names,
                         patch_size=patch_size,
-                        seed=seed
+                        random_state=seed,
+                        iter1=False
                     )
 
                     train_net(net, x_train, y_train, images)
@@ -445,7 +529,8 @@ def main():
                         batch_size,
                         patch_size,
                         image_nii.get_data().shape,
-                        images
+                        images,
+                        defo_names_test
                     )
 
                     save_nifti(image2, outputname2)
@@ -455,6 +540,8 @@ def main():
                 outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
                 image_nii.to_filename(outputname_final)
 
+            # Finally we compute some metrics that are stored in the metrics file defined above.
+            # I plan on replicating Challenge's 2008 evaluation measures here.
             gt = load_nii(os.path.join(path, mask_name)).get_data().astype(dtype=np.bool)
             seg1 = image1 > 0.5
             if not greenspan:

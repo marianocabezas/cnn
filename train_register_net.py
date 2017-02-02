@@ -1,17 +1,12 @@
 from __future__ import print_function
 import argparse
 import os
-# import sys
-# import lasagne
 from scipy.ndimage.interpolation import affine_transform
 from time import strftime
 import numpy as np
 from nets import create_cnn3d_register
 from utils import color_codes, random_affine3d_matrix
-# from data_creation import load_patch_batch_percent
 from data_creation import load_register_data
-# from nibabel import load as load_nii
-# from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
 
 
 def parse_inputs():

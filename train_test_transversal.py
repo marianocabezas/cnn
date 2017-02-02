@@ -2,13 +2,19 @@ import os
 import argparse
 import numpy as np
 from data_creation import load_patches, load_patch_batch_percent
-from data_creation import get_sufix
-from data_creation import leave_one_out
+from utils import leave_one_out
 from data_creation import sum_patches_to_image
 from nets import create_unet3d_det_string, create_unet3d_shortcuts_det_string
 from nets import create_unet3d_seg_string, create_unet3d_shortcuts_seg_string
 from nets import create_cnn3d_det_string
 from nibabel import load as load_nii
+
+
+def get_sufix(use_flair, use_pd, use_t2, use_t1, use_gado):
+    images_used = [use_flair, use_pd, use_t2, use_t1, use_gado]
+    letters = ['fl', 'pd', 't2', 't1', 'gd']
+
+    return '.'.join([letter for (letter, is_used) in zip(letters, images_used) if is_used])
 
 
 def main():
