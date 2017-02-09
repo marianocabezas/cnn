@@ -25,6 +25,7 @@ def parse_inputs():
     parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=[32])
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
+    parser.add_argument('-e', '--epochs', action='store', dest='epochs', type=int, default=1000)
     parser.add_argument('--image-folder', dest='image_folder', default='time2/preprocessed/')
     parser.add_argument('--deformation-folder', dest='defo_folder', default='time2/deformation/')
     parser.add_argument('--no-flair', action='store_false', dest='use_flair', default=True)
@@ -245,6 +246,7 @@ def main():
     greenspan = options['greenspan']
 
     # Prepare the net hyperparameters
+    epochs = options['epochs']
     padding = options['padding']
     patch_width = options['patch_width']
     patch_size = (32, 32) if greenspan else (patch_width, patch_width, patch_width)
@@ -271,8 +273,8 @@ def main():
     im_s = '.'.join(images)
     mc_s = '.mc' if multi else ''
     d_s = 'd.' if defo else ''
-    sufix = '.greenspan' if greenspan else '%s.%s%s%s.p%d.c%s.n%s.d%d.pad_%s' %\
-        (mc_s, d_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, padding)
+    sufix = '.greenspan' if greenspan else '%s.%s%s%s.p%d.c%s.n%s.d%d.e%d.pad_%s' %\
+        (mc_s, d_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, epochs, padding)
 
     # Prepare the data names
     mask_name = options['mask']
@@ -327,7 +329,7 @@ def main():
                         patience=10,
                         multichannel=True,
                         name=net_name,
-                        epochs=200
+                        epochs=100
                     )
                 else:
                     net = create_cnn3d_longitudinal(
@@ -344,7 +346,7 @@ def main():
                         defo=defo,
                         patience=10,
                         name=net_name,
-                        epochs=200
+                        epochs=100
                     )
 
             names_test = get_names_from_path(path, options)
@@ -473,7 +475,7 @@ def main():
                         patience=50,
                         multichannel=True,
                         name=net_name,
-                        epochs=2000
+                        epochs=epochs
                     )
                 else:
                     net = create_cnn3d_longitudinal(
@@ -490,7 +492,7 @@ def main():
                         defo=defo,
                         patience=50,
                         name=net_name,
-                        epochs=2000
+                        epochs=epochs
                     )
 
                 try:
