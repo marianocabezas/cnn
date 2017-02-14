@@ -255,8 +255,8 @@ def main():
     dense_size = options['dense_size']
     conv_blocks = options['conv_blocks']
     n_filters = options['number_filters']
-    n_filters = n_filters if isinstance(n_filters, list) else [n_filters]*conv_blocks
-    conv_width = options['conv_blocks']
+    n_filters = n_filters if len(n_filters) > 1 else n_filters*conv_blocks
+    conv_width = options['conv_width']
     conv_size = conv_width if isinstance(conv_width, list) else [conv_width]*conv_blocks
 
     # Prepare the sufix that will be added to the results for the net and images
@@ -268,8 +268,8 @@ def main():
     t2_name = 't2' if use_t2 else None
     images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
     reg_s = '.reg' if register else ''
-    conv_s = 'c'.join(['%d' % cw for cw in conv_size])
     filters_s = 'n'.join(['%d' % nf for nf in n_filters])
+    conv_s = 'c'.join(['%d' % cs for cs in conv_size])
     im_s = '.'.join(images)
     mc_s = '.mc' if multi else ''
     d_s = 'd.' if defo else ''
@@ -430,6 +430,8 @@ def main():
                 for patient in patients_names:
                     if defo:
                         patient, d_patient = patient
+                    else:
+                        d_patient = None
                     patient_path = '/'.join(patient[0].rsplit('/')[:-1])
                     outputname = os.path.join(patient_path, 't' + case + sufix + '.nii.gz')
                     mask_nii = load_nii(os.path.join('/'.join(patient[0].rsplit('/')[:-3]), wm_name))
