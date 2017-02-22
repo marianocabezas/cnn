@@ -2,7 +2,7 @@ from operator import mul
 import itertools
 from nolearn.lasagne import NeuralNet, BatchIterator
 from nolearn.lasagne.handlers import SaveWeights
-from nolearn_utils.hooks import SaveTrainingHistory, PlotTrainingHistory, EarlyStopping
+from utils import EarlyStopping
 from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
@@ -20,8 +20,6 @@ import numpy as np
 def get_epoch_finished(name, patience):
     return [
         SaveWeights(name + 'model_weights.pkl', only_best=True, pickle=False),
-        SaveTrainingHistory(name + 'model_history.pkl'),
-        PlotTrainingHistory(name + 'training_history.png'),
         EarlyStopping(patience=patience)
     ]
 
@@ -938,7 +936,7 @@ def create_cnn_greenspan(
             patience,
             name,
             epochs
-    ):
+):
         layer_list = get_layers_greenspan(input_channels)
 
         return create_classifier_net(

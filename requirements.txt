@@ -8,7 +8,6 @@ matplotlib==1.5.1
 networkx==1.11
 nibabel==2.1.0
 -e git+https://github.com/dnouri/nolearn.git@c9b7d1e5a91a1e48608a5678149c8b505bb8f9e4#egg=nolearn
-nolearn-utils==0.1.dev0
 numpy==1.11.2
 Pillow==3.1.1
 pkg-resources==0.0.0
