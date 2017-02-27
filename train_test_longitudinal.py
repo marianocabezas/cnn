@@ -393,7 +393,7 @@ def main():
                     train_greenspan(net, x_train, y_train, images)
                 else:
                     train_net(net, x_train, y_train, images)
-                    with open(net_name + 'net.pkl', 'wb') as fnet:
+                    with open(net_name + 'layers.pkl', 'wb') as fnet:
                         pickle.dump(net.layers, fnet, -1)
             # Then we test the net. Again we save time by checking if we already tested that patient.
             try:
