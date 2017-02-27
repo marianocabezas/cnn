@@ -1,4 +1,5 @@
 from __future__ import print_function
+import pickle
 import argparse
 import os
 import sys
@@ -6,7 +7,7 @@ from time import strftime
 import numpy as np
 from nets import create_cnn3d_longitudinal, create_cnn3d_det_string, create_cnn_greenspan
 from data_creation import load_patch_batch_percent
-from data_creation import load_cnn_data
+from data_creation import load_lesion_cnn_data
 from data_creation import save_nifti
 from nibabel import load as load_nii
 from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
@@ -170,6 +171,7 @@ def test_net(
         mask,
         batch_size,
         patch_size,
+        defo_size,
         image_size,
         images,
         d_names=None,
@@ -184,7 +186,14 @@ def test_net(
     test = np.zeros(image_size)
     print('              0% of data tested', end='\r')
     sys.stdout.flush()
-    for batch, centers, percent in load_patch_batch_percent(names, batch_size, patch_size, d_names=d_names, mask=mask):
+    for batch, centers, percent in load_patch_batch_percent(
+            names,
+            batch_size,
+            patch_size,
+            defo_size,
+            d_names=d_names,
+            mask=mask
+    ):
         if isinstance(batch, tuple):
             defo = True
             batch, d_batch = batch
@@ -285,6 +294,8 @@ def main():
     n_patients = len(patients)
     names = get_names_from_path(dir_name, options, patients)
     defo_names = get_defonames_from_path(dir_name, options, patients) if defo else None
+    defo_width = conv_blocks*2+1 if defo else None
+    defo_size = (defo_width, defo_width, defo_width)
 
     # Random initialisation
     seed = np.random.randint(np.iinfo(np.int32).max)
@@ -366,14 +377,14 @@ def main():
                 mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
                 wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
 
-                x_train, y_train = load_cnn_data(
+                x_train, y_train = load_lesion_cnn_data(
                     names=names_lou,
                     mask_names=mask_names,
                     defo_names=defo_names_lou,
                     roi_names=wm_names,
                     patch_size=patch_size,
-                    random_state=seed,
-                    iter1=True
+                    defo_size=defo_size,
+                    random_state=seed
                 )
 
                 # Afterwards we train. Check the relevant training function.
@@ -382,6 +393,8 @@ def main():
                     train_greenspan(net, x_train, y_train, images)
                 else:
                     train_net(net, x_train, y_train, images)
+                    with open(net_name + 'net.pkl', 'wb') as fnet:
+                        pickle.dump(net.layers, fnet, -1)
             # Then we test the net. Again we save time by checking if we already tested that patient.
             try:
                 image_nii = load_nii(outputname1)
@@ -408,6 +421,7 @@ def main():
                         mask_nii.get_data(),
                         batch_size,
                         patch_size,
+                        defo_size,
                         image_nii.get_data().shape,
                         images,
                         defo_names_test
@@ -450,6 +464,7 @@ def main():
                             mask_nii.get_data(),
                             batch_size,
                             patch_size,
+                            defo_size,
                             image_nii.get_data().shape,
                             images,
                             d_patient
@@ -504,20 +519,24 @@ def main():
                           c['g'] + 'Loading the data for ' + c['b'] + 'iteration 2' + c['nc'])
                     roi_paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
                     paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i + 1:]])]
-                    roi_names = [os.path.join(p_path, 't' + case + sufix + '.nii.gz') for p_path in roi_paths]
+                    pr_names = [os.path.join(p_path, 't' + case + sufix + '.nii.gz') for p_path in roi_paths]
                     mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
+                    wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
 
-                    x_train, y_train = load_cnn_data(
+                    x_train, y_train = load_lesion_cnn_data(
                         names=names_lou,
                         mask_names=mask_names,
                         defo_names=defo_names_lou,
-                        roi_names=roi_names,
+                        roi_names=wm_names,
+                        pr_names=pr_names,
                         patch_size=patch_size,
-                        random_state=seed,
-                        iter1=False
+                        defo_size=defo_size,
+                        random_state=seed
                     )
 
                     train_net(net, x_train, y_train, images)
+                    with open(net_name + 'layers.pkl', 'wb') as fnet:
+                        pickle.dump(net.layers, fnet, -1)
                 try:
                     image_nii = load_nii(outputname2)
                     image2 = image_nii.get_data()
@@ -532,6 +551,7 @@ def main():
                         mask_nii.get_data(),
                         batch_size,
                         patch_size,
+                        defo_size,
                         image_nii.get_data().shape,
                         images,
                         defo_names_test
@@ -543,6 +563,9 @@ def main():
                 image_nii.get_data()[:] = image
                 outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
                 image_nii.to_filename(outputname_final)
+                image_nii.get_data()[:] = image1 * image2
+                outputname_mult = os.path.join(path, 't' + case + sufix + '.iter1_x_2.nii.gz')
+                image_nii.to_filename(outputname_mult)
 
             # Finally we compute some metrics that are stored in the metrics file defined above.
             # I plan on replicating Challenge's 2008 evaluation measures here.
