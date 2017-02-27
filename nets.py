@@ -2,7 +2,7 @@ from operator import mul
 import itertools
 from nolearn.lasagne import NeuralNet, BatchIterator
 from nolearn.lasagne.handlers import SaveWeights
-from utils import EarlyStopping
+from utils import EarlyStopping, WeightsLogger
 from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
@@ -20,6 +20,7 @@ import numpy as np
 def get_epoch_finished(name, patience):
     return [
         SaveWeights(name + 'model_weights.pkl', only_best=True, pickle=False),
+        WeightsLogger(name + 'weights_log.pkl'),
         EarlyStopping(patience=patience)
     ]
 
@@ -311,26 +312,26 @@ def get_layers_greenspan(
     return softmax
 
 
-def get_layers_longitudinal(
-        convo_blocks,
-        input_shape,
-        images=None,
-        convo_size=3,
-        pool_size=2,
-        dense_size=256,
-        number_filters=32,
-        padding='valid',
-        drop=0.5,
-        register=False,
+def get_convolutional_longitudinal(
+    convo_blocks,
+    input_shape,
+    images,
+    convo_size,
+    pool_size,
+    number_filters,
+    padding,
+    drop,
+    register
 ):
     if not isinstance(convo_size, list):
         convo_size = [convo_size] * convo_blocks
+
     if not isinstance(number_filters, list):
         number_filters = [number_filters] * convo_blocks
     input_shape_single = tuple(input_shape[:1] + (1,) + input_shape[2:])
     channels = input_shape[1]
     if not images:
-        images = ['im%d' % i for i in range(channels/2)]
+        images = ['im%d' % i for i in range(channels / 2)]
     baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape_single) for i in images]
     followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape_single) for i in images]
 
@@ -355,6 +356,15 @@ def get_layers_longitudinal(
             name='\033[33mtransf\033[0m',
         ) for p1, p2, i in zip(baseline, followup, images)]
 
+    sub_counter = itertools.count()
+    convo_counter = itertools.count()
+    subconvo_counter = itertools.count()
+
+    subtraction = [WeightedSumLayer(
+        name='subtraction_init_%s' % i,
+        incomings=[p1, p2]
+    ) for p1, p2, i in zip(baseline, followup, images)]
+
     for c, f in zip(convo_size, number_filters):
         baseline, followup = zip(*[get_shared_convolutional_block(
             p1,
@@ -364,20 +374,68 @@ def get_layers_longitudinal(
             pool_size,
             drop,
             padding,
-            sufix=i
+            sufix=i,
+            counter=convo_counter
         ) for p1, p2, i in zip(baseline, followup, images)])
+        index = sub_counter.next()
+        subtraction = [ElemwiseSumLayer(
+            name='subtraction_%s%d' % (i, index),
+            incomings=[
+                get_convolutional_block(
+                    s,
+                    c,
+                    f,
+                    pool_size,
+                    drop,
+                    padding,
+                    sufix=i,
+                    counter=subconvo_counter
+                ),
+                WeightedSumLayer(
+                    name='wsubtraction_%s%d' % (i, index),
+                    incomings=[p1, p2]
+                )
+            ]
+        ) for p1, p2, s, i, in zip(baseline, followup, subtraction, images)]
 
-    subtraction = [WeightedSumLayer(
-        name='subtraction_%s' % i,
-        incomings=[p1, p2]
-    ) for p1, p2, i in zip(baseline, followup, images)]
+    return baseline, followup, subtraction
+
+
+def get_layers_longitudinal(
+        convo_blocks,
+        input_shape,
+        images=None,
+        convo_size=3,
+        pool_size=2,
+        dense_size=256,
+        number_filters=32,
+        padding='valid',
+        drop=0.5,
+        register=False,
+):
+    baseline, followup, subtraction = get_convolutional_longitudinal(
+        convo_blocks,
+        input_shape,
+        images,
+        convo_size,
+        pool_size,
+        number_filters,
+        padding,
+        drop,
+        register
+    )
+
+    image_union = [ConcatLayer(
+        incomings=[FlattenLayer(b), FlattenLayer(s)],
+        name='union'
+    ) for b, f, s in zip(baseline, subtraction)]
 
     dense = [DenseLayer(
         incoming=u,
         name='\033[32mdense_%s\033[0m' % i,
         num_units=dense_size,
         nonlinearity=nonlinearities.softmax
-    ) for u, i in zip(subtraction, images)]
+    ) for u, i in zip(image_union, images)]
 
     union = ConcatLayer(
         incomings=dense,
@@ -397,7 +455,6 @@ def get_layers_longitudinal(
 def get_layers_longitudinal_deformation(
             convo_blocks,
             input_shape,
-            defo_patch_shape=(5, 5, 5),
             images=None,
             convo_size=3,
             pool_size=2,
@@ -412,49 +469,23 @@ def get_layers_longitudinal_deformation(
 
     if not isinstance(number_filters, list):
         number_filters = [number_filters] * convo_blocks
-    input_shape_single = tuple(input_shape[:1] + (1,) + input_shape[2:])
-    defo_input_shape = (input_shape[:1] + (3,) + defo_patch_shape)
-    channels = input_shape[1]
-    if not images:
-        images = ['im%d' % i for i in range(channels / 2)]
-    baseline = [InputLayer(name='\033[30mbaseline_%s\033[0m' % i, shape=input_shape_single) for i in images]
-    followup = [InputLayer(name='\033[30mfollow_%s\033[0m' % i, shape=input_shape_single) for i in images]
+
+    baseline, followup, subtraction = get_convolutional_longitudinal(
+        convo_blocks,
+        input_shape,
+        images,
+        convo_size,
+        pool_size,
+        number_filters,
+        padding,
+        drop,
+        register
+    )
+
+    defo_input_shape = (input_shape[:1] + (3,) + (convo_blocks*2+1, convo_blocks*2+1, convo_blocks*2+1))
     deformation = [InputLayer(name='\033[30mdeformation_%s\033[0m' % i, shape=defo_input_shape) for i in images]
 
-    if register:
-        b = np.zeros((3, 4), dtype='float32')
-        b[0, 0] = 1
-        b[1, 1] = 1
-        b[2, 2] = 1
-        w = Constant(0.0)
-        followup = [Transformer3DLayer(
-            localization_network=DenseLayer(
-                incoming=ConcatLayer(
-                    incomings=[p1, p2]
-                ),
-                name='\033[33mloc_net\033[0m',
-                num_units=12,
-                W=w,
-                b=b.flatten,
-                nonlinearity=None
-            ),
-            incoming=p1,
-            name='\033[33mtransf\033[0m',
-        ) for p1, p2, i in zip(baseline, followup, images)]
-
-    for c, f in zip(convo_size, number_filters):
-        baseline, followup = zip(*[get_shared_convolutional_block(
-            p1,
-            p2,
-            c,
-            f,
-            pool_size,
-            drop,
-            padding,
-            sufix=i,
-            counter=itertools.count()
-        ) for p1, p2, i in zip(baseline, followup, images)])
-
+    defo_counter = itertools.count()
     for c, f in zip(convo_size, number_filters):
         deformation = [get_convolutional_block(
             d,
@@ -464,18 +495,13 @@ def get_layers_longitudinal_deformation(
             drop,
             padding,
             sufix=i,
-            counter=itertools.count()
+            counter=defo_counter
         ) for d, i in zip(deformation, images)]
 
-    subtraction = [WeightedSumLayer(
-        name='subtraction_%s' % i,
-        incomings=[p1, p2]
-    ) for p1, p2, i in zip(baseline, followup, images)]
-
     image_union = [ConcatLayer(
-        incomings=[FlattenLayer(s), FlattenLayer(d)],
+        incomings=[FlattenLayer(b), FlattenLayer(s), FlattenLayer(d)],
         name='union'
-    ) for s, d in zip(subtraction, deformation)]
+    ) for b, s, d in zip(baseline, subtraction, deformation)]
 
     dense = [DenseLayer(
         incoming=u,
