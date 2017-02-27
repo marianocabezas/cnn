@@ -154,7 +154,15 @@ def norm_defo_generator(image_names):
         yield im / np.linalg.norm(im, axis=4).std()
 
 
-def load_patch_batch_percent(image_names, batch_size, size, d_names=None, mask=None, datatype=np.float32):
+def load_patch_batch_percent(
+        image_names,
+        batch_size,
+        size,
+        defo_size=None,
+        d_names=None,
+        mask=None,
+        datatype=np.float32
+):
     images = [load_nii(name).get_data() for name in image_names]
     defos = [load_nii(name).get_data() for name in d_names] if d_names is not None else []
     images_norm = [(im - im[np.nonzero(im)].mean()) / im[np.nonzero(im)].std() for im in images]
@@ -165,7 +173,7 @@ def load_patch_batch_percent(image_names, batch_size, size, d_names=None, mask=N
     for i in range(0, n_centers, batch_size):
         centers = lesion_centers[i:i + batch_size]
         x = get_image_patches(images_norm, centers, size).astype(dtype=datatype)
-        d = get_defo_patches(defos_norm, centers) if defos else []
+        d = get_defo_patches(defos_norm, centers, size=defo_size) if defos else []
         patches = (x, d) if defos else x
         yield patches, centers, (100.0 * min((i + batch_size),  n_centers)) / n_centers
 
@@ -289,18 +297,22 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     return data, masks, image_names
 
 
-def get_cnn_rois(names, mask_names, roi_names, iter1=True):
-    if iter1:
-        rois = load_thresholded_norm_images_by_name(names[0, :], threshold=1.0, mask_names=roi_names)
-        brain_masks = rois if rois else load_masks(names)
-        rois_n = [np.logical_and(np.logical_not(lesion), brain)
-                  for lesion, brain in zip(load_masks(mask_names), brain_masks)]
-    else:
-        pr_maps = [load_nii(roi_name).get_data() for roi_name in roi_names]
+def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0):
+    rois = load_thresholded_norm_images_by_name(
+        names[0, :],
+        threshold=th,
+        mask_names=roi_names
+    ) if roi_names is not None else load_masks(names)
+    if pr_names is not None:
+        pr_maps = [load_nii(name).get_data() * roi for name, roi in zip(pr_names, rois)]
         idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
                            for pr_map, lesion_mask in zip(pr_maps, load_masks(mask_names))]
         rois_n = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
                   for idx, lesion_mask in zip(idx_sorted_maps, load_masks(mask_names))]
+    else:
+        rois_n = [np.logical_and(np.logical_not(lesion), brain)
+                  for lesion, brain in zip(load_masks(mask_names), rois)]
+
     rois_p = list(load_masks(mask_names))
     return rois_p, rois_n
 
@@ -327,18 +339,27 @@ def permute(x, seed, datatype=np.float32):
     return x_permuted
 
 
-def load_cnn_data(names, mask_names, roi_names, defo_names=None, patch_size=(11, 11, 11), random_state=42, iter1=True):
+def load_lesion_cnn_data(
+        names,
+        mask_names,
+        roi_names,
+        pr_names=None,
+        defo_names=None,
+        patch_size=(11, 11, 11),
+        defo_size=(5, 5, 5),
+        random_state=42,
+):
     seed = time.clock() if not random_state else random_state
-    rois = get_cnn_rois(names, mask_names, roi_names, iter1)
+    pr_names = names[0, :] if pr_names is None else pr_names
+    rois = get_cnn_rois(names, mask_names, roi_names=roi_names, pr_names=pr_names)
     print('                Loading image data and labels vector')
     x_train, y_train, rois = load_and_stack(names, rois, patch_size, seed,)
-    print('                Creating deformation vector')
     x_train = permute(np.concatenate(x_train), seed)
     y_train = permute(np.concatenate(y_train), seed, datatype=np.int32)
     if defo_names is not None:
         print('                Creating deformation vector')
         defo_train = np.stack(
-            [get_defo_patch_vectors(names_i, rois, random_state=seed) for names_i in defo_names],
+            [get_defo_patch_vectors(names_i, rois, size=defo_size, random_state=seed) for names_i in defo_names],
             axis=1
         )
         defo_train = permute(defo_train, seed)
