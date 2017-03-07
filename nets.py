@@ -357,8 +357,8 @@ def get_convolutional_longitudinal(
         ) for p1, p2, i in zip(baseline, followup, images)]
 
     sub_counter = itertools.count()
-    convo_counter = itertools.count()
-    subconvo_counter = itertools.count()
+    convo_counters = [itertools.count()] * len(images)
+    subconvo_counters = [itertools.count()] * len(images)
 
     subtraction = [WeightedSumLayer(
         name='subtraction_init_%s' % i,
@@ -376,10 +376,10 @@ def get_convolutional_longitudinal(
             padding,
             sufix=i,
             counter=convo_counter
-        ) for p1, p2, i in zip(baseline, followup, images)])
+        ) for p1, p2, i, convo_counter in zip(baseline, followup, images, convo_counters)])
         index = sub_counter.next()
         subtraction = [ElemwiseSumLayer(
-            name='subtraction_%s%d' % (i, index),
+            name='subtraction_%s_%d' % (i, index),
             incomings=[
                 get_convolutional_block(
                     s,
@@ -392,11 +392,11 @@ def get_convolutional_longitudinal(
                     counter=subconvo_counter
                 ),
                 WeightedSumLayer(
-                    name='wsubtraction_%s%d' % (i, index),
+                    name='wsubtraction_%s_%d' % (i, index),
                     incomings=[p1, p2]
                 )
             ]
-        ) for p1, p2, s, i, in zip(baseline, followup, subtraction, images)]
+        ) for p1, p2, s, i, subconvo_counter in zip(baseline, followup, subtraction, images, subconvo_counters)]
 
     return baseline, followup, subtraction
 
@@ -428,7 +428,7 @@ def get_layers_longitudinal(
     image_union = [ConcatLayer(
         incomings=[FlattenLayer(b), FlattenLayer(s)],
         name='union'
-    ) for b, f, s in zip(baseline, subtraction)]
+    ) for b, s in zip(baseline, subtraction)]
 
     dense = [DenseLayer(
         incoming=u,
@@ -466,7 +466,6 @@ def get_layers_longitudinal_deformation(
 ):
     if not isinstance(convo_size, list):
         convo_size = [convo_size] * convo_blocks
-
     if not isinstance(number_filters, list):
         number_filters = [number_filters] * convo_blocks
 
@@ -485,7 +484,7 @@ def get_layers_longitudinal_deformation(
     defo_input_shape = (input_shape[:1] + (3,) + (convo_blocks*2+1, convo_blocks*2+1, convo_blocks*2+1))
     deformation = [InputLayer(name='\033[30mdeformation_%s\033[0m' % i, shape=defo_input_shape) for i in images]
 
-    defo_counter = itertools.count()
+    defo_counters = [itertools.count()] * len(images)
     for c, f in zip(convo_size, number_filters):
         deformation = [get_convolutional_block(
             d,
@@ -496,7 +495,7 @@ def get_layers_longitudinal_deformation(
             padding,
             sufix=i,
             counter=defo_counter
-        ) for d, i in zip(deformation, images)]
+        ) for d, i, defo_counter in zip(deformation, images, defo_counters)]
 
     image_union = [ConcatLayer(
         incomings=[FlattenLayer(b), FlattenLayer(s), FlattenLayer(d)],
@@ -578,14 +577,14 @@ def get_shared_convolutional_block(
 
     convolution1 = Conv3DDNNLayer(
         incoming=incoming1,
-        name='\033[34mconv_%s1_%d\033[0m' % (sufix, index),
+        name='\033[34mconv_%s_1_%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
         pad=padding
     )
     convolution2 = Conv3DDNNLayer(
         incoming=incoming2,
-        name='\033[34mconv_%s2_%d\033[0m' % (sufix, index),
+        name='\033[34mconv_%s_2_%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
         W=convolution1.W,
@@ -594,31 +593,31 @@ def get_shared_convolutional_block(
     )
     normalisation1 = batch_norm_dnn(
         layer=convolution1,
-        name='norm_%s1_%d' % (sufix, index)
+        name='norm_%s_1_%d' % (sufix, index)
     )
     normalisation2 = batch_norm_dnn(
         layer=convolution2,
-        name='norm_%s2_%d' % (sufix, index)
+        name='norm_%s_2_%d' % (sufix, index)
     )
     dropout1 = DropoutLayer(
         incoming=normalisation1,
-        name='drop_%s1_%d' % (sufix, index),
+        name='drop_%s_1_%d' % (sufix, index),
         p=drop
     )
     dropout2 = DropoutLayer(
         incoming=normalisation2,
-        name='drop_%s2_%d' % (sufix, index),
+        name='drop_%s_2_%d' % (sufix, index),
         p=drop
     )
     pool1 = Pool3DDNNLayer(
         incoming=dropout1,
-        name='\033[31mavg_pool_%s1_%d\033[0m' % (sufix, index),
+        name='\033[31mavg_pool_%s_1_%d\033[0m' % (sufix, index),
         pool_size=pool_size,
         mode='average_inc_pad'
     )
     pool2 = Pool3DDNNLayer(
         incoming=dropout2,
-        name='\033[31mavg_pool_%s2_%d\033[0m' % (sufix, index),
+        name='\033[31mavg_pool_%s_2_%d\033[0m' % (sufix, index),
         pool_size=pool_size,
         mode='average_inc_pad'
     )
