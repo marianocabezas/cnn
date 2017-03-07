@@ -207,7 +207,7 @@ def test_net(
         print('              %f%% of data tested' % percent, end='\r')
         sys.stdout.flush()
         [x, y, z] = np.stack(centers, axis=1)
-        test[x, y, z] = y_pred[:, 1]
+        test[x, y, z] = y_pred[:, -1]
 
     return test
 
