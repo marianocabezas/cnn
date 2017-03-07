@@ -3,6 +3,7 @@ from lasagne.layers import InputLayer
 import re
 from math import floor
 import pickle
+import os
 
 
 def color_codes():
@@ -184,9 +185,9 @@ class EarlyStopping(object):
 
 
 class WeightsLogger(object):
-    """From https://github.com/dnouri/kfkd-tutorial"""
+    """Based on EarlyStopping"""
     def __init__(self, filename):
-        self.params = []
+        self.params = list()
         self.filename = filename
 
     def __call__(self, nn, train_history):
