@@ -28,6 +28,7 @@ def parse_inputs():
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('-e', '--epochs', action='store', dest='epochs', type=int, default=1000)
     parser.add_argument('--image-folder', dest='image_folder', default='time2/preprocessed/')
+    parser.add_argument('--sub-folder', dest='sub_folder', default='time2/subtraction/')
     parser.add_argument('--deformation-folder', dest='defo_folder', default='time2/deformation/')
     parser.add_argument('--no-flair', action='store_false', dest='use_flair', default=True)
     parser.add_argument('--no-pd', action='store_false', dest='use_pd', default=True)
@@ -35,6 +36,9 @@ def parse_inputs():
     parser.add_argument('--flair-baseline', action='store', dest='flair_b', default='flair_moved.nii.gz')
     parser.add_argument('--pd-baseline', action='store', dest='pd_b', default='pd_moved.nii.gz')
     parser.add_argument('--t2-baseline', action='store', dest='t2_b', default='t2_moved.nii.gz')
+    parser.add_argument('--flair-sub', action='store', dest='flair_sub', default='flair_smoothed_subtraction.nii.gz')
+    parser.add_argument('--pd-sub', action='store', dest='pd_sub', default='pd_smoothed_subtraction.nii.gz')
+    parser.add_argument('--t2-sub', action='store', dest='t2_sub', default='t2_smoothed_subtraction.nii.gz')
     parser.add_argument('--flair-12m', action='store', dest='flair_f', default='flair_registered.nii.gz')
     parser.add_argument('--pd-12m', action='store', dest='pd_f', default='pd_corrected.nii.gz')
     parser.add_argument('--t2-12m', action='store', dest='t2_f', default='t2_corrected.nii.gz')
@@ -85,6 +89,10 @@ def get_names_from_path(path, options, patients=None):
     name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
 
     return np.stack([name for name in name_list if name is not None])
+
+
+def get_sub_names_from_path(path, images_folder, sub_name, patients):
+    return np.stack([os.path.join(path, patient, images_folder, sub_name) for patient in patients])
 
 
 def get_defonames_from_path(path, options, patients=None):
@@ -288,6 +296,8 @@ def main():
     # Prepare the data names
     mask_name = options['mask']
     wm_name = options['wm_mask']
+    sub_folder = options['sub_folder']
+    sub_name = options['flair_sub']
     dir_name = options['dir_name']
     patients = [f for f in sorted(os.listdir(dir_name))
                 if os.path.isdir(os.path.join(dir_name, f))]
@@ -365,7 +375,7 @@ def main():
             outputname1 = os.path.join(path, 't' + case + sufix + '.iter1.nii.gz') if not greenspan else os.path.join(
                 path, 't' + case + sufix + '.nii.gz')
 
-            # First we check that we did not train that patient, in order to save time
+            # First we check that we did not train for that patient, in order to save time
             try:
                 net.load_params_from(net_name + 'model_weights.pkl')
             except IOError:
@@ -376,12 +386,14 @@ def main():
                 paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i+1:]])]
                 mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
                 wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
+                pr_names = [os.path.join(p_path, sub_folder, sub_name) for p_path in paths]
 
                 x_train, y_train = load_lesion_cnn_data(
                     names=names_lou,
                     mask_names=mask_names,
                     defo_names=defo_names_lou,
                     roi_names=wm_names,
+                    pr_names=pr_names,
                     patch_size=patch_size,
                     defo_size=defo_size,
                     random_state=seed
