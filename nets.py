@@ -357,8 +357,8 @@ def get_convolutional_longitudinal(
         ) for p1, p2, i in zip(baseline, followup, images)]
 
     sub_counter = itertools.count()
-    convo_counters = [itertools.count()] * len(images)
-    subconvo_counters = [itertools.count()] * len(images)
+    convo_counters = [itertools.count() for _ in images]
+    subconvo_counters = [itertools.count() for _ in images]
 
     subtraction = [WeightedSumLayer(
         name='subtraction_init_%s' % i,
@@ -389,14 +389,14 @@ def get_convolutional_longitudinal(
                     drop,
                     padding,
                     sufix=i,
-                    counter=subconvo_counter
+                    counter=counter
                 ),
                 WeightedSumLayer(
                     name='wsubtraction_%s_%d' % (i, index),
                     incomings=[p1, p2]
                 )
             ]
-        ) for p1, p2, s, i, subconvo_counter in zip(baseline, followup, subtraction, images, subconvo_counters)]
+        ) for p1, p2, s, i, counter in zip(baseline, followup, subtraction, images, subconvo_counters)]
 
     return baseline, followup, subtraction
 
@@ -427,8 +427,8 @@ def get_layers_longitudinal(
 
     image_union = [ConcatLayer(
         incomings=[FlattenLayer(b), FlattenLayer(s)],
-        name='union'
-    ) for b, s in zip(baseline, subtraction)]
+        name='union_%s' % i
+    ) for b, s, i in zip(baseline, subtraction, images)]
 
     dense = [DenseLayer(
         incoming=u,
@@ -484,7 +484,7 @@ def get_layers_longitudinal_deformation(
     defo_input_shape = (input_shape[:1] + (3,) + (convo_blocks*2+1, convo_blocks*2+1, convo_blocks*2+1))
     deformation = [InputLayer(name='\033[30mdeformation_%s\033[0m' % i, shape=defo_input_shape) for i in images]
 
-    defo_counters = [itertools.count()] * len(images)
+    defo_counters = [itertools.count() for _ in images]
     for c, f in zip(convo_size, number_filters):
         deformation = [get_convolutional_block(
             d,
@@ -493,14 +493,14 @@ def get_layers_longitudinal_deformation(
             pool_size,
             drop,
             padding,
-            sufix=i,
+            sufix='d' + i,
             counter=defo_counter
         ) for d, i, defo_counter in zip(deformation, images, defo_counters)]
 
     image_union = [ConcatLayer(
         incomings=[FlattenLayer(b), FlattenLayer(s), FlattenLayer(d)],
-        name='union'
-    ) for b, s, d in zip(baseline, subtraction, deformation)]
+        name='union_%s' % i
+    ) for b, s, d, i in zip(baseline, subtraction, deformation, images)]
 
     dense = [DenseLayer(
         incoming=u,
