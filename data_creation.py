@@ -9,12 +9,13 @@ from nibabel import save as save_nii
 from nibabel import Nifti1Image as NiftiImage
 from data_manipulation.generate_features import get_mask_voxels, get_patches, get_patches2_5d
 from utils import color_codes
+from itertools import izip
 
 
 def sum_patch_to_image(patch, center, image):
     patch_size = patch.shape
     patch_half = tuple([idx / 2 for idx in patch_size])
-    indices = [slice(c_idx - p_idx, c_idx + p_idx + 1) for (c_idx, p_idx) in zip(center, patch_half)]
+    indices = [slice(c_idx - p_idx, c_idx + p_idx + 1) for (c_idx, p_idx) in izip(center, patch_half)]
     image[indices] += patch
     return image
 
@@ -29,10 +30,10 @@ def set_patches(image, centers, patches, patch_size=(15, 15, 15)):
     if list_of_tuples and sizes_match:
         patch_half = tuple([idx/2 for idx in patch_size])
         slices = [
-            [slice(c_idx - p_idx, c_idx + p_idx + 1) for (c_idx, p_idx) in zip(center, patch_half)]
+            [slice(c_idx - p_idx, c_idx + p_idx + 1) for (c_idx, p_idx) in izip(center, patch_half)]
             for center in centers
             ]
-        for sl, patch in zip(slices, patches):
+        for sl, patch in izip(slices, patches):
             image[sl] = patch
     return patches
 
@@ -105,7 +106,7 @@ def load_masks(mask_names):
 
 
 def threshold_image_list(images, threshold, masks=None):
-    return [im * m > threshold for im, m in zip(images, masks)] if masks else [im > threshold for im in images]
+    return [im * m > threshold for im, m in izip(images, masks)] if masks else [im > threshold for im in images]
 
 
 def load_thresholded_images_by_name(image_names, threshold=2.0):
@@ -181,8 +182,8 @@ def load_patch_batch_percent(
 def subsample(center_list, sizes, random_state):
     np.random.seed(random_state)
     indices = [np.random.permutation(range(0, len(centers))).tolist()[:size]
-               for centers, size in zip(center_list, sizes)]
-    return [itemgetter(*idx)(centers) if idx else [] for centers, idx in zip(center_list, indices)]
+               for centers, size in izip(center_list, sizes)]
+    return [itemgetter(*idx)(centers) if idx else [] for centers, idx in izip(center_list, indices)]
 
 
 def get_defo_patches(defos, centers, size=(5, 5, 5)):
@@ -207,9 +208,9 @@ def get_image_patches(image_list, centers, size):
 
 def get_list_of_patches(image_list, center_list, size):
     patches = [
-        get_patches(image, centers, size) for image, centers in zip(image_list, center_list) if centers
+        get_patches(image, centers, size) for image, centers in izip(image_list, center_list) if centers
         ] if len(size) == 3 else [
-        np.stack(get_patches2_5d(image, centers, size)) for image, centers in zip(image_list, center_list) if centers
+        np.stack(get_patches2_5d(image, centers, size)) for image, centers in izip(image_list, center_list) if centers
         ]
     return patches
 
@@ -229,7 +230,8 @@ def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, ra
     print(c['lgy'] + '                ' + image_names[0].rsplit('/')[-1] + c['nc'])
 
     # Get all the patches for each image
-    return get_patch_vectors(norm_image_generator(image_names), positive_masks, negative_masks, size, random_state)
+    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
+    return get_patch_vectors(norm_image_generator(image_names), positive_centers, negative_centers, size)
 
 
 def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), random_state=42):
@@ -243,9 +245,11 @@ def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), random_state=42):
 
     positive_masks, negative_masks = masks
 
+    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
+
     patches = np.stack(
-        [np.concatenate(get_patch_vectors(list(d), positive_masks, negative_masks, size, random_state))
-         for d in zip(*defo_xyz)],
+        [np.concatenate(get_patch_vectors(list(d), positive_centers, negative_centers, size))
+         for d in izip(*defo_xyz)],
         axis=1
     )
 
@@ -253,13 +257,12 @@ def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), random_state=42):
     return patches
 
 
-def get_patch_vectors(images, positive_masks, negative_masks, size, random_state=42):
-    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
-    centers = [p + list(n) for p, n in zip(positive_centers, negative_centers)]
+def get_patch_vectors(images, positive_centers, negative_centers, size):
+    centers = [p + list(n) for p, n in izip(positive_centers, negative_centers)]
     patches = get_list_of_patches(images, centers, size)
 
     # Return the patch vectors
-    data = patches if len(size) == 3 else [np.swapaxes(p, 0, 1) for p in zip(patches)]
+    data = patches if len(size) == 3 else [np.swapaxes(p, 0, 1) for p in izip(patches)]
     return data
 
 
@@ -271,7 +274,8 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     brain_masks = rois if rois else load_masks(image_names)
     mask_names = [os.path.join(dir_name, patient, mask_name) for patient in patients]
     lesion_masks = load_masks(mask_names)
-    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in zip(lesion_masks, brain_masks)]
+    nolesion_masks = [np.logical_and(np.logical_not(lesion), brain) for lesion, brain in
+                      izip(lesion_masks, brain_masks)]
 
     # Get all the patches for each image
     # Get all the centers for each image
@@ -291,8 +295,8 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     negative_mask_patches = get_list_of_patches(nolesion_masks, nolesion_small, size)
 
     # Return the patch vectors
-    data = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_patches, negative_patches)]
-    masks = [np.concatenate([p1, p2]) for p1, p2 in zip(positive_mask_patches, negative_mask_patches)]
+    data = [np.concatenate([p1, p2]) for p1, p2 in izip(positive_patches, negative_patches)]
+    masks = [np.concatenate([p1, p2]) for p1, p2 in izip(positive_mask_patches, negative_mask_patches)]
 
     return data, masks, image_names
 
@@ -304,14 +308,14 @@ def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0):
         mask_names=roi_names
     ) if roi_names is not None else load_masks(names)
     if pr_names is not None:
-        pr_maps = [load_nii(name).get_data() * roi for name, roi in zip(pr_names, rois)]
+        pr_maps = [load_nii(name).get_data() * roi for name, roi in izip(pr_names, rois)]
         idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
-                           for pr_map, lesion_mask in zip(pr_maps, load_masks(mask_names))]
+                           for pr_map, lesion_mask in izip(pr_maps, load_masks(mask_names))]
         rois_n = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
-                  for idx, lesion_mask in zip(idx_sorted_maps, load_masks(mask_names))]
+                  for idx, lesion_mask in izip(idx_sorted_maps, load_masks(mask_names))]
     else:
         rois_n = [np.logical_and(np.logical_not(lesion), brain)
-                  for lesion, brain in zip(load_masks(mask_names), rois)]
+                  for lesion, brain in izip(load_masks(mask_names), rois)]
 
     rois_p = list(load_masks(mask_names))
     return rois_p, rois_n
@@ -323,7 +327,7 @@ def load_and_stack(names, rois, patch_size, random_state=42):
     images_loaded = [get_norm_patch_vectors(names_i, rois_p, rois_n, patch_size, random_state=random_state)
                      for names_i in names]
 
-    x_train = [np.stack(images, axis=1) for images in zip(*images_loaded)]
+    x_train = [np.stack(images, axis=1) for images in izip(*images_loaded)]
     y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
 
     return x_train, y_train, (rois_p, rois_n)
@@ -373,7 +377,7 @@ def load_register_data(names, image_size, seed):
     print('                Creating data vector')
     images = [norm_image_generator(n) for n in names]
     images_loaded = [
-        np.stack([nd.interpolation.zoom(im, [A/(1.0*B) for A, B in zip(image_size, im.shape)]) for im in gen])
+        np.stack([nd.interpolation.zoom(im, [A/(1.0*B) for A, B in izip(image_size, im.shape)]) for im in gen])
         for gen in images]
     x_train = np.stack(images_loaded)
     x_train = np.concatenate([x_train, np.stack([x_train[:, 1, :, :, :], x_train[:, 0, :, :, :]], axis=1)])
@@ -435,7 +439,7 @@ def load_patches(
 
     print 'Creating data vector'
     data = [images for images in [flair, pd, t2, gado, t1] if images is not None]
-    x = [np.stack(images, axis=1) for images in zip(*data)]
+    x = [np.stack(images, axis=1) for images in izip(*data)]
     image_names = np.stack([name for name in [
         flair_names,
         pd_names,
