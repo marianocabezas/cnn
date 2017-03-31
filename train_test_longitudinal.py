@@ -8,7 +8,6 @@ import numpy as np
 from nets import create_cnn3d_longitudinal, create_cnn3d_det_string, create_cnn_greenspan
 from data_creation import load_patch_batch_percent
 from data_creation import load_lesion_cnn_data
-from data_creation import save_nifti
 from nibabel import load as load_nii
 from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
 from utils import color_codes
@@ -414,7 +413,7 @@ def main():
             except IOError:
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Creating the probability map ' + c['b'] + '1' + c['nc'] + c['g'] + '>' + c['nc'])
-                image_nii = load_nii(os.path.join(path, mask_name))
+                image_nii = load_nii(os.path.join(path, options['image_folder'], options['flair_f']))
                 mask_nii = load_nii(os.path.join(path, wm_name))
                 if greenspan:
                     image1 = test_greenspan(
@@ -438,12 +437,13 @@ def main():
                         images,
                         defo_names_test
                     )
-
-                save_nifti(image1, outputname1)
+                image_nii.get_data()[:] = image1
+                image_nii.to_filename(outputname1)
             if greenspan:
                 # Since Greenspan did not use two iterations, we must get the final mask here.
                 outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
-                save_nifti((image1 > 0.5).astype(dtype=np.int8), outputname_final)
+                mask_nii.get_data()[:] = (image1 > 0.5).astype(dtype=np.int8)
+                mask_nii.to_filename(outputname_final)
             else:
                 # If not, we test the net with the training set to look for misclassified negative with a high
                 # probability of being positives according to the net.
@@ -483,7 +483,8 @@ def main():
                         )
 
                         print(c['g'] + '                   -- Saving image ' + c['b'] + outputname + c['nc'])
-                        save_nifti(image, outputname)
+                        image_nii.get_data()[:] = image
+                        image_nii.to_filename(outputname)
 
                 ''' Here we perform the last iteration '''
                 # Finally we perform the final iteration. After refactoring the code, the code looks almost exactly
@@ -555,7 +556,7 @@ def main():
                 except IOError:
                     print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                           '<Creating the probability map ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-                    image_nii = load_nii(os.path.join(path, mask_name))
+                    image_nii = load_nii(os.path.join(path, options['image_folder'], options['flair_f']))
                     mask_nii = load_nii(os.path.join(path, wm_name))
                     image2 = test_net(
                         net,
@@ -569,15 +570,18 @@ def main():
                         defo_names_test
                     )
 
-                    save_nifti(image2, outputname2)
+                    image_nii.get_data()[:] = image2
+                    image_nii.to_filename(outputname2)
+
+                image = image1 * image2
+                image_nii.get_data()[:] = image
+                outputname_mult = os.path.join(path, 't' + case + sufix + '.iter1_x_2.nii.gz')
+                image_nii.to_filename(outputname_mult)
 
                 image = (image1 * image2) > 0.5
                 image_nii.get_data()[:] = image
                 outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
                 image_nii.to_filename(outputname_final)
-                image_nii.get_data()[:] = image1 * image2
-                outputname_mult = os.path.join(path, 't' + case + sufix + '.iter1_x_2.nii.gz')
-                image_nii.to_filename(outputname_mult)
 
             # Finally we compute some metrics that are stored in the metrics file defined above.
             # I plan on replicating Challenge's 2008 evaluation measures here.
