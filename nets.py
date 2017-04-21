@@ -6,8 +6,7 @@ from utils import EarlyStopping, WeightsLogger
 from lasagne import objectives
 from lasagne.layers import InputLayer
 from lasagne.layers import ReshapeLayer, DenseLayer, DropoutLayer, ElemwiseSumLayer, ConcatLayer, FlattenLayer
-from lasagne.layers import Conv2DLayer, MaxPool2DLayer
-from lasagne.layers.dnn import Conv3DDNNLayer, MaxPool3DDNNLayer, Pool3DDNNLayer, batch_norm_dnn
+from lasagne.layers import Conv2DLayer, Conv3DLayer, MaxPool2DLayer, MaxPool3DLayer, Pool3DLayer, batch_norm
 from layers import Unpooling3D, Transformer3DLayer, WeightedSumLayer
 from lasagne import updates
 from lasagne import nonlinearities
@@ -59,8 +58,8 @@ def get_layers_string(
     c_size = (convo_size, convo_size, convo_size)
     for layer in net_layers:
         if layer == 'c':
-            conv_layer = batch_norm_dnn(
-                layer=Conv3DDNNLayer(
+            conv_layer = batch_norm(
+                layer=Conv3DLayer(
                     incoming=previous_layer,
                     name='\033[34mconv%d\033[0m' % c_index,
                     num_filters=number_filters,
@@ -68,8 +67,8 @@ def get_layers_string(
                     pad=padding
                 ),
                 name='norm%d' % c_index
-            ) if multi_channel else [batch_norm_dnn(
-                layer=Conv3DDNNLayer(
+            ) if multi_channel else [batch_norm(
+                layer=Conv3DLayer(
                     incoming=layer,
                     name='\033[34mconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
@@ -111,12 +110,12 @@ def get_layers_string(
                 name='\033[33mtransf_%d\033[0m' % i,
             ) for layer, i in zip(previous_layer, channels)]
         elif layer == 'a':
-            previous_layer = Pool3DDNNLayer(
+            previous_layer = Pool3DLayer(
                 incoming=previous_layer,
                 name='\033[31mavg_pool%d\033[0m' % p_index,
                 pool_size=pool_size,
                 mode='average_inc_pad'
-            ) if multi_channel else [Pool3DDNNLayer(
+            ) if multi_channel else [Pool3DLayer(
                 incoming=layer,
                 name='\033[31mavg_pool%d_%d\033[0m' % (p_index, i),
                 pool_size=pool_size,
@@ -124,11 +123,11 @@ def get_layers_string(
             ) for layer, i in zip(previous_layer, channels)]
             p_index += 1
         elif layer == 'm':
-            previous_layer = MaxPool3DDNNLayer(
+            previous_layer = MaxPool3DLayer(
                 incoming=previous_layer,
                 name='\033[31mmax_pool%d\033[0m' % p_index,
                 pool_size=pool_size
-            ) if multi_channel else [MaxPool3DDNNLayer(
+            ) if multi_channel else [MaxPool3DLayer(
                 incoming=layer,
                 name='\033[31mmax_pool%d_%d\033[0m' % (p_index, i),
                 pool_size=pool_size
@@ -155,8 +154,8 @@ def get_layers_string(
             ) for convolutional, layer, i in zip(convolutions['conv%d' % (c_index - 1)], previous_layer, channels)]
         elif layer == 'd':
             c_index -= 1
-            previous_layer = batch_norm_dnn(
-                layer=Conv3DDNNLayer(
+            previous_layer = batch_norm(
+                layer=Conv3DLayer(
                     incoming=previous_layer,
                     name='\033[36mdeconv%d\033[0m' % c_index,
                     num_filters=number_filters,
@@ -165,8 +164,8 @@ def get_layers_string(
                     pad='full'
                 ),
                 name='denorm%d' % c_index
-            ) if multi_channel else [batch_norm_dnn(
-                layer=Conv3DDNNLayer(
+            ) if multi_channel else [batch_norm(
+                layer=Conv3DLayer(
                     incoming=layer,
                     name='\033[36mdeconv%d_%d\033[0m' % (c_index, i),
                     num_filters=number_filters,
@@ -188,13 +187,13 @@ def get_layers_string(
             ) for layer, i in zip(previous_layer, channels)]
         elif layer == 'f':
             c_index -= 1
-            previous_layer = Conv3DDNNLayer(
+            previous_layer = Conv3DLayer(
                 incoming=previous_layer,
                 name='\033[36mfinal\033[0m',
                 num_filters=input_shape[1],
                 filter_size=c_size,
                 pad='full'
-            ) if multi_channel else [Conv3DDNNLayer(
+            ) if multi_channel else [Conv3DLayer(
                 incoming=layer,
                 name='\033[36mfinal_%d\033[0m' % i,
                 num_filters=1,
@@ -535,14 +534,14 @@ def get_convolutional_block(
         sufix=''
 ):
     index = counter.next()
-    convolution = Conv3DDNNLayer(
+    convolution = Conv3DLayer(
         incoming=incoming,
         name='\033[34mconv_%s%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
         pad=padding
     )
-    normalisation = batch_norm_dnn(
+    normalisation = batch_norm(
         layer=convolution,
         name='norm_%s%d' % (sufix, index)
     )
@@ -551,7 +550,7 @@ def get_convolutional_block(
         name='drop_%s%d' % (sufix, index),
         p=drop
     )
-    pool = Pool3DDNNLayer(
+    pool = Pool3DLayer(
         incoming=dropout,
         name='\033[31mavg_pool_%s%d\033[0m' % (sufix, index),
         pool_size=pool_size,
@@ -575,14 +574,14 @@ def get_shared_convolutional_block(
 
     index = counter.next()
 
-    convolution1 = Conv3DDNNLayer(
+    convolution1 = Conv3DLayer(
         incoming=incoming1,
         name='\033[34mconv_%s_1_%d\033[0m' % (sufix, index),
         num_filters=num_filters,
         filter_size=convo_size,
         pad=padding
     )
-    convolution2 = Conv3DDNNLayer(
+    convolution2 = Conv3DLayer(
         incoming=incoming2,
         name='\033[34mconv_%s_2_%d\033[0m' % (sufix, index),
         num_filters=num_filters,
@@ -591,11 +590,11 @@ def get_shared_convolutional_block(
         b=convolution1.b,
         pad=padding
     )
-    normalisation1 = batch_norm_dnn(
+    normalisation1 = batch_norm(
         layer=convolution1,
         name='norm_%s_1_%d' % (sufix, index)
     )
-    normalisation2 = batch_norm_dnn(
+    normalisation2 = batch_norm(
         layer=convolution2,
         name='norm_%s_2_%d' % (sufix, index)
     )
@@ -609,13 +608,13 @@ def get_shared_convolutional_block(
         name='drop_%s_2_%d' % (sufix, index),
         p=drop
     )
-    pool1 = Pool3DDNNLayer(
+    pool1 = Pool3DLayer(
         incoming=dropout1,
         name='\033[31mavg_pool_%s_1_%d\033[0m' % (sufix, index),
         pool_size=pool_size,
         mode='average_inc_pad'
     )
-    pool2 = Pool3DDNNLayer(
+    pool2 = Pool3DLayer(
         incoming=dropout2,
         name='\033[31mavg_pool_%s_2_%d\033[0m' % (sufix, index),
         pool_size=pool_size,
@@ -644,7 +643,7 @@ def get_convolutional_block2d(
             filter_size=convo_size,
             pad=padding
         )
-        normalisation = batch_norm_dnn(
+        normalisation = batch_norm(
             layer=convolution,
             name='norm_%s%d' % (sufix, index)
         )
