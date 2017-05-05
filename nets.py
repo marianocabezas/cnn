@@ -454,6 +454,7 @@ def get_layers_longitudinal(
 def get_layers_longitudinal_deformation(
             convo_blocks,
             input_shape,
+            d_off=1,
             images=None,
             convo_size=3,
             pool_size=2,
@@ -480,7 +481,7 @@ def get_layers_longitudinal_deformation(
         register
     )
 
-    defo_input_shape = (input_shape[:1] + (3,) + (convo_blocks*2+1, convo_blocks*2+1, convo_blocks*2+1))
+    defo_input_shape = (input_shape[:1] + (3,) + (convo_blocks*2+d_off, convo_blocks*2+d_off, convo_blocks*2+d_off))
     deformation = [InputLayer(name='\033[30mdeformation_%s\033[0m' % i, shape=defo_input_shape) for i in images]
 
     defo_counters = [itertools.count() for _ in images]
@@ -937,6 +938,7 @@ def create_cnn3d_longitudinal(
     ) if not defo else get_layers_longitudinal_deformation(
         convo_blocks=convo_blocks,
         input_shape=input_shape,
+        d_off=defo,
         images=images,
         convo_size=convo_size,
         pool_size=pool_size,

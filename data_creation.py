@@ -215,26 +215,27 @@ def get_list_of_patches(image_list, center_list, size):
     return patches
 
 
-def get_centers_from_masks(positive_masks, negative_masks, random_state=42):
+def get_centers_from_masks(positive_masks, negative_masks, balanced=True, random_state=42):
     positive_centers = [get_mask_voxels(mask) for mask in positive_masks]
     negative_centers = [get_mask_voxels(mask) for mask in negative_masks]
-    positive_voxels = [len(positives) for positives in positive_centers]
-    negative_centers = list(subsample(negative_centers, positive_voxels, random_state))
+    if balanced:
+        positive_voxels = [len(positives) for positives in positive_centers]
+        negative_centers = list(subsample(negative_centers, positive_voxels, random_state))
 
     return positive_centers, negative_centers
 
 
-def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, random_state=42):
+def get_norm_patch_vectors(image_names, positive_masks, negative_masks, size, balanced=True, random_state=42):
     # Get all the centers for each image
     c = color_codes()
     print(c['lgy'] + '                ' + image_names[0].rsplit('/')[-1] + c['nc'])
 
     # Get all the patches for each image
-    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
+    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, balanced, random_state)
     return get_patch_vectors(norm_image_generator(image_names), positive_centers, negative_centers, size)
 
 
-def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), random_state=42):
+def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), balanced=True, random_state=42):
     # Get all the centers for each image
     c = color_codes()
     print(c['lgy'] + '                ' + image_names[0].rsplit('/')[-1] + c['nc'])
@@ -245,7 +246,7 @@ def get_defo_patch_vectors(image_names, masks, size=(5, 5, 5), random_state=42):
 
     positive_masks, negative_masks = masks
 
-    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, random_state)
+    positive_centers, negative_centers = get_centers_from_masks(positive_masks, negative_masks, balanced, random_state)
 
     patches = np.stack(
         [np.concatenate(get_patch_vectors(list(d), positive_centers, negative_centers, size))
@@ -301,7 +302,7 @@ def load_patch_vectors(name, mask_name, dir_name, size, rois=None, random_state=
     return data, masks, image_names
 
 
-def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0):
+def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0, balanced=True):
     rois = load_thresholded_norm_images_by_name(
         names[0, :],
         threshold=th,
@@ -309,10 +310,14 @@ def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0):
     ) if roi_names is not None else load_masks(names)
     if pr_names is not None:
         pr_maps = [load_nii(name).get_data() * roi for name, roi in izip(pr_names, rois)]
-        idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
-                           for pr_map, lesion_mask in izip(pr_maps, load_masks(mask_names))]
-        rois_n = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
-                  for idx, lesion_mask in izip(idx_sorted_maps, load_masks(mask_names))]
+        if balanced:
+            idx_sorted_maps = [np.argsort(pr_map * np.logical_not(lesion_mask), axis=None)
+                               for pr_map, lesion_mask in izip(pr_maps, load_masks(mask_names))]
+            rois_n = [idx.reshape(lesion_mask.shape) > (idx.shape[0] - np.sum(lesion_mask) - 1)
+                      for idx, lesion_mask in izip(idx_sorted_maps, load_masks(mask_names))]
+        else:
+            rois_n = [np.logical_and(np.logical_not(lesion_mask), pr_map > 0.5)
+                      for pr_map, lesion_mask in izip(pr_maps, load_masks(mask_names))]
     else:
         rois_n = [np.logical_and(np.logical_not(lesion), brain)
                   for lesion, brain in izip(load_masks(mask_names), rois)]
@@ -321,14 +326,27 @@ def get_cnn_rois(names, mask_names, roi_names=None, pr_names=None, th=1.0):
     return rois_p, rois_n
 
 
-def load_and_stack(names, rois, patch_size, random_state=42):
+def load_and_stack(names, rois, patch_size, balanced=True, random_state=42):
     rois_p, rois_n = rois
 
-    images_loaded = [get_norm_patch_vectors(names_i, rois_p, rois_n, patch_size, random_state=random_state)
-                     for names_i in names]
+    images_loaded = [
+        get_norm_patch_vectors(
+            names_i,
+            rois_p,
+            rois_n,
+            patch_size,
+            balanced=balanced,
+            random_state=random_state
+        ) for names_i in names]
 
     x_train = [np.stack(images, axis=1) for images in izip(*images_loaded)]
-    y_train = [np.concatenate([np.ones(x.shape[0]/2), np.zeros(x.shape[0]/2)]) for x in x_train]
+    y_train = [
+        np.concatenate([np.ones(x.shape[0] / 2), np.zeros(x.shape[0] / 2)])
+        for x in x_train
+        ] if balanced else [
+        np.concatenate([np.ones(sum(roi_p.flatten())), np.zeros(sum(roi_n.flatten()))])
+        for roi_p, roi_n in izip(rois_p, rois_n)
+        ]
 
     return x_train, y_train, (rois_p, rois_n)
 
@@ -347,23 +365,45 @@ def load_lesion_cnn_data(
         names,
         mask_names,
         roi_names,
+        init_pr_names=None,
         pr_names=None,
         defo_names=None,
         patch_size=(11, 11, 11),
         defo_size=(5, 5, 5),
+        balanced=True,
         random_state=42,
 ):
     seed = time.clock() if not random_state else random_state
     pr_names = names[0, :] if pr_names is None else pr_names
-    rois = get_cnn_rois(names, mask_names, roi_names=roi_names, pr_names=pr_names)
+    if init_pr_names is None:
+        rois = get_cnn_rois(names, mask_names, roi_names=roi_names, pr_names=pr_names, balanced=balanced)
+    else:
+        rois_p, i1rois_n = get_cnn_rois(
+            names,
+            mask_names,
+            roi_names=roi_names,
+            pr_names=init_pr_names,
+            balanced=balanced
+        )
+        _, i2rois_n = get_cnn_rois(
+            names,
+            mask_names,
+            roi_names=roi_names,
+            pr_names=pr_names,
+            balanced=balanced
+        )
+        rois_n = [np.logical_or(ri1_n, ri2_n) for ri1_n, ri2_n in zip(i1rois_n, i2rois_n)]
+        rois = (rois_p, rois_n)
+
     print('                Loading image data and labels vector')
-    x_train, y_train, rois = load_and_stack(names, rois, patch_size, seed,)
+    x_train, y_train, rois = load_and_stack(names, rois, patch_size, balanced=balanced, random_state=seed)
     x_train = permute(np.concatenate(x_train), seed)
     y_train = permute(np.concatenate(y_train), seed, datatype=np.int32)
     if defo_names is not None:
         print('                Creating deformation vector')
         defo_train = np.stack(
-            [get_defo_patch_vectors(names_i, rois, size=defo_size, random_state=seed) for names_i in defo_names],
+            [get_defo_patch_vectors(names_i, rois, size=defo_size, balanced=balanced, random_state=seed)
+             for names_i in defo_names],
             axis=1
         )
         defo_train = permute(defo_train, seed)

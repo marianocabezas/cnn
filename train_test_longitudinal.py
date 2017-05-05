@@ -11,6 +11,7 @@ from data_creation import load_lesion_cnn_data
 from nibabel import load as load_nii
 from data_manipulation.metrics import dsc_seg, tp_fraction_seg, fp_fraction_seg
 from utils import color_codes
+from lasagne.layers import DenseLayer
 
 
 def parse_inputs():
@@ -22,7 +23,11 @@ def parse_inputs():
     parser.add_argument('-k', '--kernel-size', dest='conv_width', nargs='+', type=int, default=3)
     parser.add_argument('-c', '--conv-blocks', dest='conv_blocks', type=int, default=2)
     parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=10000)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-u', '--unbalanced', action='store_false', dest='balanced', default=True)
+    group.add_argument('-U', '--unbalanced-freeze', action='store_true', dest='freeze', default=False)
     parser.add_argument('-d', '--dense-size', dest='dense_size', type=int, default=256)
+    parser.add_argument('-D', '--deformation', dest='deformation', type=int, default=0)
     parser.add_argument('-n', '--num-filters', action='store', dest='number_filters', nargs='+', type=int, default=[32])
     parser.add_argument('-l', '--layers', action='store', dest='layers', default='ca')
     parser.add_argument('-e', '--epochs', action='store', dest='epochs', type=int, default=1000)
@@ -50,7 +55,6 @@ def parse_inputs():
     parser.add_argument('--padding', action='store', dest='padding', default='valid')
     parser.add_argument('--register', action='store_true', dest='register', default=False)
     parser.add_argument('--greenspan', action='store_true', dest='greenspan', default=False)
-    parser.add_argument('--deformation', action='store_true', dest='deformation', default=False)
     parser.add_argument('-m', '--multi-channel', action='store_true', dest='multi', default=False)
     return vars(parser.parse_args())
 
@@ -260,6 +264,8 @@ def main():
     defo = options['deformation']
     layers = ''.join(options['layers'])
     greenspan = options['greenspan']
+    freeze = options['freeze']
+    balanced = options['balanced'] if not freeze else False
 
     # Prepare the net hyperparameters
     epochs = options['epochs']
@@ -288,7 +294,7 @@ def main():
     conv_s = 'c'.join(['%d' % cs for cs in conv_size])
     im_s = '.'.join(images)
     mc_s = '.mc' if multi else ''
-    d_s = 'd.' if defo else ''
+    d_s = 'd%d.' % (conv_blocks*2+defo) if defo else ''
     sufix = '.greenspan' if greenspan else '%s.%s%s%s.p%d.c%s.n%s.d%d.e%d.pad_%s' %\
         (mc_s, d_s, im_s, reg_s, patch_width, conv_s, filters_s, dense_size, epochs, padding)
 
@@ -303,7 +309,7 @@ def main():
     n_patients = len(patients)
     names = get_names_from_path(dir_name, options, patients)
     defo_names = get_defonames_from_path(dir_name, options, patients) if defo else None
-    defo_width = conv_blocks*2+1 if defo else None
+    defo_width = conv_blocks*2+defo if defo else None
     defo_size = (defo_width, defo_width, defo_width)
 
     # Random initialisation
@@ -491,8 +497,11 @@ def main():
                 # the same as the training of the first iteration.
                 print(c['c'] + '[' + strftime("%H:%M:%S") + ']    ' + c['g'] +
                       '<Running iteration ' + c['b'] + '2' + c['nc'] + c['g'] + '>' + c['nc'])
-                outputname2 = os.path.join(path, 't' + case + sufix + '.iter2.nii.gz')
-                net_name = os.path.join(path, 'deep-longitudinal.final' + sufix + '.')
+                f_s = '.f' if freeze else ''
+                ub_s = '.ub' if not balanced else ''
+                final_s = f_s + ub_s
+                outputname2 = os.path.join(path, 't' + case + final_s + sufix + '.iter2.nii.gz')
+                net_name = os.path.join(path, 'deep-longitudinal.final' + final_s + sufix + '.')
                 if multi:
                     net = create_cnn3d_det_string(
                         cnn_path=layers,
@@ -508,22 +517,28 @@ def main():
                         epochs=epochs
                     )
                 else:
-                    net = create_cnn3d_longitudinal(
-                        convo_blocks=conv_blocks,
-                        input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
-                        images=images,
-                        convo_size=conv_size,
-                        pool_size=pool_size,
-                        dense_size=dense_size,
-                        number_filters=n_filters,
-                        padding=padding,
-                        drop=0.5,
-                        register=register,
-                        defo=defo,
-                        patience=50,
-                        name=net_name,
-                        epochs=epochs
-                    )
+                    if not freeze:
+                        net = create_cnn3d_longitudinal(
+                            convo_blocks=conv_blocks,
+                            input_shape=(None, names.shape[0], patch_width, patch_width, patch_width),
+                            images=images,
+                            convo_size=conv_size,
+                            pool_size=pool_size,
+                            dense_size=dense_size,
+                            number_filters=n_filters,
+                            padding=padding,
+                            drop=0.5,
+                            register=register,
+                            defo=defo,
+                            patience=50,
+                            name=net_name,
+                            epochs=epochs
+                        )
+                    else:
+                        for layer in net.get_all_layers():
+                            if not isinstance(layer, DenseLayer):
+                                for param in layer.params:
+                                    layer.params[param].discard('trainable')
 
                 try:
                     net.load_params_from(net_name + 'model_weights.pkl')
@@ -532,6 +547,7 @@ def main():
                           c['g'] + 'Loading the data for ' + c['b'] + 'iteration 2' + c['nc'])
                     roi_paths = ['/'.join(name.rsplit('/')[:-1]) for name in names_lou[0, :]]
                     paths = [os.path.join(dir_name, p) for p in np.concatenate([patients[:i], patients[i + 1:]])]
+                    ipr_names = [os.path.join(p_path, sub_folder, sub_name) for p_path in paths] if freeze else None
                     pr_names = [os.path.join(p_path, 't' + case + sufix + '.nii.gz') for p_path in roi_paths]
                     mask_names = [os.path.join(p_path, mask_name) for p_path in paths]
                     wm_names = [os.path.join(p_path, wm_name) for p_path in paths]
@@ -541,10 +557,12 @@ def main():
                         mask_names=mask_names,
                         defo_names=defo_names_lou,
                         roi_names=wm_names,
+                        init_pr_names=ipr_names,
                         pr_names=pr_names,
                         patch_size=patch_size,
                         defo_size=defo_size,
-                        random_state=seed
+                        random_state=seed,
+                        balanced=balanced
                     )
 
                     train_net(net, x_train, y_train, images)
@@ -575,12 +593,12 @@ def main():
 
                 image = image1 * image2
                 image_nii.get_data()[:] = image
-                outputname_mult = os.path.join(path, 't' + case + sufix + '.iter1_x_2.nii.gz')
+                outputname_mult = os.path.join(path, 't' + case + final_s + sufix + '.iter1_x_2.nii.gz')
                 image_nii.to_filename(outputname_mult)
 
                 image = (image1 * image2) > 0.5
                 image_nii.get_data()[:] = image
-                outputname_final = os.path.join(path, 't' + case + sufix + '.final.nii.gz')
+                outputname_final = os.path.join(path, 't' + case + final_s + sufix + '.final.nii.gz')
                 image_nii.to_filename(outputname_final)
 
             # Finally we compute some metrics that are stored in the metrics file defined above.
