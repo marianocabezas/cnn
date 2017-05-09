@@ -375,16 +375,9 @@ def load_lesion_cnn_data(
 ):
     seed = time.clock() if not random_state else random_state
     pr_names = names[0, :] if pr_names is None else pr_names
-    if init_pr_names is None:
-        rois = get_cnn_rois(names, mask_names, roi_names=roi_names, pr_names=pr_names, balanced=balanced)
-    else:
-        rois_p, i1rois_n = get_cnn_rois(
-            names,
-            mask_names,
-            roi_names=roi_names,
-            pr_names=init_pr_names,
-            balanced=balanced
-        )
+    rois = get_cnn_rois(names, mask_names, roi_names=roi_names, pr_names=pr_names, balanced=balanced)
+    if init_pr_names is not None:
+        rois_p, i1rois_n = rois
         _, i2rois_n = get_cnn_rois(
             names,
             mask_names,
@@ -397,8 +390,10 @@ def load_lesion_cnn_data(
 
     print('                Loading image data and labels vector')
     x_train, y_train, rois = load_and_stack(names, rois, patch_size, balanced=balanced, random_state=seed)
-    x_train = permute(np.concatenate(x_train), seed)
-    y_train = permute(np.concatenate(y_train), seed, datatype=np.int32)
+    x_train = np.concatenate(x_train)
+    x_train = permute(x_train, seed)
+    y_train = np.concatenate(y_train)
+    y_train = permute(y_train, seed, datatype=np.int32)
     if defo_names is not None:
         print('                Creating deformation vector')
         defo_train = np.stack(
