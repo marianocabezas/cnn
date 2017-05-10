@@ -536,7 +536,7 @@ def main():
                         )
                     else:
                         net.max_epochs = epochs
-                        net.on_epoch_finished.[0].name = net_name + 'model_weights.pkl'
+                        net.on_epoch_finished[0].name = net_name + 'model_weights.pkl'
                         for layer in net.get_all_layers():
                             if not isinstance(layer, DenseLayer):
                                 for param in layer.params:
