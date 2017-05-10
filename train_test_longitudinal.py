@@ -535,6 +535,7 @@ def main():
                             epochs=epochs
                         )
                     else:
+                        net.max_epochs=epochs
                         for layer in net.get_all_layers():
                             if not isinstance(layer, DenseLayer):
                                 for param in layer.params:
