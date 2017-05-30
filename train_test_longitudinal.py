@@ -97,7 +97,6 @@ def get_names_from_path(path, options, patients=None):
 def get_sub_names_from_path(path, images_folder, sub_name, patients):
     return np.stack([os.path.join(path, patient, images_folder, sub_name) for patient in patients])
 
-
 def get_defonames_from_path(path, options, patients=None):
     # Check if all images should be used
     use_flair = options['use_flair']
