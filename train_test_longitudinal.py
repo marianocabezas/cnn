@@ -91,7 +91,7 @@ def get_names_from_path(path, options, patients=None):
         t2_f_names = os.path.join(path, t2_f_name) if use_t2 else None
     name_list = [flair_f_names, pd_f_names, t2_f_names, flair_b_names, pd_b_names, t2_b_names]
 
-    return np.stack([name for name in name_list if name is not None])
+    return np.stack(filter(None, name_list))
 
 
 def get_sub_names_from_path(path, images_folder, sub_name, patients):
@@ -121,7 +121,7 @@ def get_defonames_from_path(path, options, patients=None):
         t2_d_names = os.path.join(path, t2_d_name) if use_t2 else None
     name_list = [flair_d_names, pd_d_names, t2_d_names]
 
-    return np.stack([name for name in name_list if name is not None])
+    return np.stack(filter(None, name_list))
 
 
 def train_net(
@@ -288,7 +288,7 @@ def main():
     flair_name = 'flair' if use_flair else None
     pd_name = 'pd' if use_pd else None
     t2_name = 't2' if use_t2 else None
-    images = [name for name in [flair_name, pd_name, t2_name] if name is not None]
+    images = filter(None, [flair_name, pd_name, t2_name])
     reg_s = '.reg' if register else ''
     filters_s = 'n'.join(['%d' % nf for nf in n_filters])
     conv_s = 'c'.join(['%d' % cs for cs in conv_size])
