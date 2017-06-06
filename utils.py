@@ -1,9 +1,13 @@
+import itertools
 import numpy as np
 from lasagne.layers import InputLayer
+import nibabel as nib
+
 import re
 from math import floor
 import pickle
 import os
+from scipy import ndimage as nd
 
 
 def color_codes():
@@ -153,6 +157,22 @@ def train_test_split(data, labels, test_size=0.1, random_state=42):
 def leave_one_out(data_list, labels_list):
     for i in range(0, len(data_list)):
         yield data_list[:i] + data_list[i+1:], labels_list[:i] + labels_list[i+1:], i
+
+
+def remove_small_regions(path, file_str='.mask.', file_sufix='.s3', min_size=3):
+    patients = sorted(filter(os.path.isdir, [os.path.join(path, f) for f in os.listdir(path)]))
+    images = [filter(lambda x: file_str in x, [os.path.join(p, f) for f in os.listdir(p)]) for p in patients]
+    for im in itertools.chain(*images):
+        mask_nii = nib.load(im)
+        mask = mask_nii.get_data()
+        blobs, _ = nd.measurements.label(mask, nd.morphology.generate_binary_structure(3, 3))
+        labels = filter(bool, np.unique(blobs))
+        areas = [np.count_nonzero(blobs == l) for l in labels]
+        nu_labels = [l for l, a in zip(labels, areas) if a > min_size]
+        nu_mask = reduce(lambda x, y: np.logical_or(x, y),
+                         [np.equal(blobs, l) for l in nu_labels]) if nu_labels else np.zeros_like(mask)
+        nu_mask_nii = nib.Nifti1Image(nu_mask, mask_nii.affine, mask_nii.header)
+        nib.save(nu_mask_nii, im.replace('.nii', file_sufix + '.nii'))
 
 
 class EarlyStopping(object):
